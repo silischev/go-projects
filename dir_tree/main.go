@@ -2,10 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 func main() {
@@ -21,6 +19,23 @@ func main() {
 	}
 }
 
-/*func dirTree()  {
+func dirTree(out *os.File, path string, printFiles bool) error {
+	directories, err := ioutil.ReadDir(path)
 
-}*/
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	if printFiles {
+		for _, dir := range directories {
+			//fmt.Println("└───", dir.Name())
+
+			if dir.IsDir() {
+				fmt.Println("└───", dir.Name())
+				dirTree(out, path+string(os.PathSeparator)+dir.Name(), true)
+			}
+		}
+	}
+
+	return err
+}

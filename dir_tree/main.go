@@ -35,7 +35,6 @@ func dirTree(out *os.File, path string, printFiles bool, level int) error {
 	if printFiles {
 		for _, dir := range directories {
 			fmt.Println("├───"+strings.Repeat("	", level), dir.Name())
-			//fmt.Println(len(directories), dir.Name())
 
 			if dir.IsDir() {
 				level += 1

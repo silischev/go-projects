@@ -9,9 +9,6 @@ import (
 )
 
 func main() {
-	//fmt.Println("*" + strings.Repeat("\t", 1), "test")
-	//panic("end")
-
 	start := time.Now()
 	out := os.Stdout
 
@@ -40,11 +37,6 @@ func dirTree(out *os.File, path string, printFiles bool, level int) error {
 		fmt.Println(err)
 	}
 
-	/*fmt.Println(len(directories));
-	panic("die");*/
-
-	//fmt.Println(level)
-
 	if filesCount > 0 {
 		level++
 	} else {
@@ -53,7 +45,6 @@ func dirTree(out *os.File, path string, printFiles bool, level int) error {
 
 	for _, dir := range directories {
 		//currentDirNum := index + 1
-		//fmt.Println("├───"+strings.Repeat("	", level), dir.Name(), "level", level, "files", filesCount, "idx ", currentDirNum)
 
 		if !printFiles && !dir.IsDir() {
 			continue
@@ -77,14 +68,6 @@ func printLines(dirName string, level int, filesCount int) {
 	case 1:
 		fmt.Println(strings.Repeat("\t", level)+"├───", dirName)
 	default:
-		fmt.Println(strings.Repeat("│\t", level)+"├───", dirName)
+		fmt.Println(strings.Repeat("\t", level-1)+strings.Repeat("│\t", level-1)+"├───", dirName)
 	}
-
-	/*if level > 1 {
-		fmt.Println(strings.Repeat("│\t", level) + "├───", dirName)
-	} else if level == 1 {
-		fmt.Println(strings.Repeat("\t", level) + "├───", dirName)
-	} else {
-		fmt.Println("├───" + strings.Repeat("", level), dirName)
-	}*/
 }

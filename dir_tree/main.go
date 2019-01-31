@@ -18,7 +18,7 @@ func main() {
 
 	path := os.Args[1]
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
-	err := dirTree(out, path, printFiles, -1)
+	err := dirTree(out, path, printFiles, -1, false)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -28,10 +28,10 @@ func main() {
 	fmt.Println("Elapsed: ", elapsed)
 }
 
-func dirTree(out *os.File, path string, printFiles bool, level int) error {
+func dirTree(out *os.File, path string, printFiles bool, level int, isLastParentDir bool) error {
 	directories, err := ioutil.ReadDir(path)
 	filesCount := len(directories)
-	//currentDirNum := 0
+	isLastFile := false
 
 	if err != nil {
 		fmt.Println(err)
@@ -43,28 +43,51 @@ func dirTree(out *os.File, path string, printFiles bool, level int) error {
 		level--
 	}
 
-	for _, dir := range directories {
-		//currentDirNum := index + 1
+	for index, dir := range directories {
+		if index == filesCount-1 {
+			isLastFile = true
+		}
 
 		if !printFiles && !dir.IsDir() {
 			continue
 		}
 
-		printLines(dir.Name(), level, filesCount)
+		printLines(dir.Name(), level, isLastFile, isLastParentDir)
 
 		if dir.IsDir() {
+			if index == filesCount-1 {
+				isLastParentDir = true
+			}
+
 			dirPath := path + string(os.PathSeparator) + dir.Name()
-			err = dirTree(out, dirPath, printFiles, level)
+			err = dirTree(out, dirPath, printFiles, level, isLastParentDir)
 		}
 	}
 
 	return err
 }
 
-func printLines(dirName string, level int, filesCount int) {
-	if level == 0 {
-		fmt.Println("├───", dirName)
-	} else {
-		fmt.Println("\t"+strings.Repeat("│\t", level)+"├───", dirName, "level ->", level)
+func printLines(dirName string, level int, isLastFile bool, isLastParentDir bool) {
+	delimiter := "├───"
+
+	if isLastFile {
+		delimiter = "└───"
 	}
+
+	line := delimiter
+
+	if level > 0 {
+		if isLastFile {
+			if isLastParentDir {
+				line = "│\t" + strings.Repeat("\t", level-1) + delimiter
+			} else {
+				line = "│\t" + strings.Repeat("│\t", level-1) + delimiter
+			}
+		} else {
+			line = strings.Repeat("│\t", level) + delimiter
+		}
+	}
+
+	//fmt.Print(line, dirName, " -> ", isLastFile, " -> ", isLastParentDir, "\n")
+	fmt.Print(line, dirName, "\n")
 }

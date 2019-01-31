@@ -62,12 +62,9 @@ func dirTree(out *os.File, path string, printFiles bool, level int) error {
 }
 
 func printLines(dirName string, level int, filesCount int) {
-	switch level {
-	case 0:
-		fmt.Println("├───"+strings.Repeat("", level), dirName)
-	case 1:
-		fmt.Println(strings.Repeat("\t", level)+"├───", dirName)
-	default:
-		fmt.Println(strings.Repeat("\t", level-1)+strings.Repeat("│\t", level-1)+"├───", dirName)
+	if level == 0 {
+		fmt.Println("├───", dirName)
+	} else {
+		fmt.Println("\t"+strings.Repeat("│\t", level)+"├───", dirName, "level ->", level)
 	}
 }

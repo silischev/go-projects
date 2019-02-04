@@ -18,7 +18,7 @@ func main() {
 
 	path := os.Args[1]
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
-	err := dirTree(out, path, printFiles, -1, 0)
+	err := dirTree(out, path, printFiles, 0, 0)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -39,7 +39,7 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 
 	if filesCount > 0 {
 		level++
-	} else {
+	} else if level > 1 {
 		level--
 	}
 
@@ -52,10 +52,10 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 			continue
 		}
 
-		printLines(dir.Name(), level, isLastFile, lastParentDirLevel)
+		printLines(getDirName(dir), level, isLastFile, lastParentDirLevel)
 
 		if dir.IsDir() {
-			if index == filesCount-1 && lastParentDirLevel < 1 {
+			if isLastFile && lastParentDirLevel < 1 {
 				lastParentDirLevel = level
 			}
 
@@ -67,21 +67,24 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 	return err
 }
 
+func getDirName(dir os.FileInfo) string {
+	//panic(dir.Size)
+
+	return fmt.Sprintf(" (%vb)", dir.Size)
+}
+
 func printLines(dirName string, level int, isLastFile bool, lastParentDirLevel int) {
+	line := ""
 	delimiter := "├───"
 
 	if isLastFile {
 		delimiter = "└───"
 	}
 
-	line := delimiter
-
-	if level > 0 {
-		if lastParentDirLevel > 0 {
-			line = strings.Repeat("│\t", lastParentDirLevel) + strings.Repeat("\t", level-lastParentDirLevel) + delimiter
-		} else {
-			line = strings.Repeat("│\t", level) + delimiter
-		}
+	if lastParentDirLevel > 0 {
+		line = strings.Repeat("│\t", lastParentDirLevel-1) + strings.Repeat("\t", level-lastParentDirLevel) + delimiter
+	} else {
+		line = strings.Repeat("│\t", level-1) + delimiter
 	}
 
 	fmt.Print(line, dirName, "\n")

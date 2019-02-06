@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -19,7 +20,7 @@ func main() {
 
 	path := os.Args[1]
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
-	err := dirTree(out, path, printFiles, 0, 0)
+	err := dirTree(out, path, printFiles)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -29,7 +30,17 @@ func main() {
 	fmt.Println("Elapsed: ", elapsed)
 }
 
-func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDirLevel int) error {
+func dirTree(out io.Writer, path string, printFiles bool) error {
+	err := showDirTreeRecursive(out, path, printFiles, 0, 0)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return nil
+}
+
+func showDirTreeRecursive(out io.Writer, path string, printFiles bool, level int, lastParentDirLevel int) error {
 	directories, err := ioutil.ReadDir(path)
 	filesCount := len(directories)
 	isLastFile := false
@@ -57,7 +68,7 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 			continue
 		}
 
-		printLines(getDirNameLine(dir), level, isLastFile, lastParentDirLevel)
+		printLines(out, getDirNameLine(dir), level, isLastFile, lastParentDirLevel)
 
 		if dir.IsDir() {
 			if isLastFile && lastParentDirLevel < 1 {
@@ -65,26 +76,28 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 			}
 
 			dirPath := path + string(os.PathSeparator) + dir.Name()
-			err = dirTree(out, dirPath, printFiles, level, lastParentDirLevel)
+			err = showDirTreeRecursive(out, dirPath, printFiles, level, lastParentDirLevel)
 		}
 	}
 
-	return err
+	return nil
 }
 
 func getDirNameLine(dir os.FileInfo) string {
 	len := dir.Name()
 
-	if dir.Size() > 0 {
-		len += fmt.Sprintf(" (%vb)", dir.Size())
-	} else {
-		len += " (empty)"
+	if !dir.IsDir() {
+		if dir.Size() > 0 {
+			len += fmt.Sprintf(" (%vb)", dir.Size())
+		} else {
+			len += " (empty)"
+		}
 	}
 
 	return len
 }
 
-func printLines(dirName string, level int, isLastFile bool, lastParentDirLevel int) {
+func printLines(out io.Writer, dirName string, level int, isLastFile bool, lastParentDirLevel int) {
 	line := ""
 	delimiter := "├───"
 
@@ -98,5 +111,5 @@ func printLines(dirName string, level int, isLastFile bool, lastParentDirLevel i
 		line = strings.Repeat("│\t", level-1) + delimiter
 	}
 
-	fmt.Print(line, dirName, "\n")
+	fmt.Fprint(out, line, dirName, "\n")
 }

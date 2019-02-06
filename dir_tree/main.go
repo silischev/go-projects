@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -33,6 +34,10 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 	filesCount := len(directories)
 	isLastFile := false
 
+	sort.Slice(directories, func(i, j int) bool {
+		return directories[i].Name() < directories[j].Name()
+	})
+
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -52,7 +57,7 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 			continue
 		}
 
-		printLines(getDirName(dir), level, isLastFile, lastParentDirLevel)
+		printLines(getDirNameLine(dir), level, isLastFile, lastParentDirLevel)
 
 		if dir.IsDir() {
 			if isLastFile && lastParentDirLevel < 1 {
@@ -67,10 +72,16 @@ func dirTree(out *os.File, path string, printFiles bool, level int, lastParentDi
 	return err
 }
 
-func getDirName(dir os.FileInfo) string {
-	//panic(dir.Size)
+func getDirNameLine(dir os.FileInfo) string {
+	len := dir.Name()
 
-	return fmt.Sprintf(" (%vb)", dir.Size)
+	if dir.Size() > 0 {
+		len += fmt.Sprintf(" (%vb)", dir.Size())
+	} else {
+		len += " (empty)"
+	}
+
+	return len
 }
 
 func printLines(dirName string, level int, isLastFile bool, lastParentDirLevel int) {

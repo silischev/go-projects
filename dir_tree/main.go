@@ -60,12 +60,12 @@ func showDirTreeRecursive(out io.Writer, path string, printFiles bool, level int
 	}
 
 	for index, dir := range directories {
-		if index == filesCount-1 {
-			isLastFile = true
-		}
-
 		if !printFiles && !dir.IsDir() {
 			continue
+		}
+
+		if index == filesCount-1 || (!printFiles && index == filesCount-2 && !directories[index+1].IsDir()) {
+			isLastFile = true
 		}
 
 		printLines(out, getDirNameLine(dir), level, isLastFile, lastParentDirLevel)

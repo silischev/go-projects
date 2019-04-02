@@ -4,8 +4,12 @@ import "fmt"
 
 func main() {
 	data := "0"
-	fmt.Println(SingleHash(data))
-	fmt.Println(MultiHash(SingleHash(data)))
+
+	firstRes := SingleHash(data)
+	secondRes := MultiHash(firstRes)
+
+	fmt.Println(firstRes)
+	fmt.Println(secondRes)
 }
 
 func SingleHash(data string) string {

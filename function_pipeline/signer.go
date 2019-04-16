@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"sync"
 )
 
 //var mu sync.Mutex
+var wg sync.WaitGroup
 
 func main() {
 	data := []int{0, 1}
@@ -17,13 +19,13 @@ func main() {
 			for _, val := range data {
 				log.Println("*** " + strconv.Itoa(int(val)))
 				out <- strconv.Itoa(int(val))
-				log.Println("after put in out")
+				//log.Println("after put in out")
 			}
 			close(out)
 		},
 		SingleHash,
 		MultiHash,
-		//CombineResults,
+		CombineResults,
 	}
 
 	ExecutePipeline(jobs...)
@@ -34,6 +36,7 @@ func main() {
 func ExecutePipeline(jobs ...job) {
 	in := make(chan interface{})
 	out := make(chan interface{})
+	wg.Add(4)
 
 	for _, j := range jobs {
 		go j(in, out)
@@ -47,7 +50,10 @@ func SingleHash(in, out chan interface{}) {
 		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
 		log.Println("*1* => " + tmp)
 		in <- tmp
+		wg.Done()
 	}
+
+	//wg.Done()
 }
 
 func MultiHash(in, out chan interface{}) {
@@ -62,14 +68,28 @@ func MultiHash(in, out chan interface{}) {
 		}
 
 		log.Println("*2* => " + res)
-		//in <- res
+		wg.Done()
+		in <- res
 	}
+
+	log.Println("END IN...")
+	//wg.Done()
+	close(in)
 }
 
 func CombineResults(in, out chan interface{}) {
-	log.Println("*3*")
-	in <- out
-	inVal := <-in
-	log.Println("*3* => " + inVal.(string))
-	//log.Println(<-out)
+	for {
+		wg.Wait()
+		var res []string
+		val, opened := <-in
+		if opened {
+			log.Println("*3*" + " -> val " + val.(string))
+			res = append(res, val.(string)+"_")
+		} else {
+			// sort
+			log.Println("Finish *3* => ")
+			log.Println(res)
+			break
+		}
+	}
 }

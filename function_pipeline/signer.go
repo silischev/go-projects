@@ -6,19 +6,24 @@ import (
 	"strconv"
 )
 
+//var mu sync.Mutex
+
 func main() {
-	//data := []int{0, 1}
-	data := []int{0}
+	data := []int{0, 1}
+	//data := []int{0}
 
 	jobs := []job{
 		func(in, out chan interface{}) {
 			for _, val := range data {
-				in <- strconv.Itoa(int(val))
+				log.Println("*** " + strconv.Itoa(int(val)))
+				out <- strconv.Itoa(int(val))
+				log.Println("after put in out")
 			}
+			close(out)
 		},
 		SingleHash,
 		MultiHash,
-		CombineResults,
+		//CombineResults,
 	}
 
 	ExecutePipeline(jobs...)
@@ -36,25 +41,35 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
-	val := <-in
-	tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
-	log.Println(tmp)
-	out <- tmp
+	for val := range out {
+		log.Println("*1*" + " -> val " + val.(string))
+
+		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
+		log.Println("*1* => " + tmp)
+		in <- tmp
+	}
 }
 
 func MultiHash(in, out chan interface{}) {
-	inVal := <-out
-	steps := []string{"0", "1", "2", "3", "4", "5"}
-	res := ""
+	for val := range in {
+		log.Println("*2*" + " -> val " + val.(string))
+		steps := []string{"0", "1", "2", "3", "4", "5"}
+		res := ""
 
-	for _, val := range steps {
-		res += DataSignerCrc32(val + inVal.(string))
+		log.Println("*2* ->" + "before cycle")
+		for _, step := range steps {
+			res += DataSignerCrc32(step + val.(string))
+		}
+
+		log.Println("*2* => " + res)
+		//in <- res
 	}
-
-	log.Println(res)
-	out <- res
 }
 
 func CombineResults(in, out chan interface{}) {
-	log.Println(<-out)
+	log.Println("*3*")
+	in <- out
+	inVal := <-in
+	log.Println("*3* => " + inVal.(string))
+	//log.Println(<-out)
 }

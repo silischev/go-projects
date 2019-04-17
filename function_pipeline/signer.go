@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"sync"
 )
 
 //var mu sync.Mutex
-var wg sync.WaitGroup
+//var wg sync.WaitGroup
 
 func main() {
 	data := []int{0, 1}
@@ -34,23 +33,33 @@ func main() {
 }
 
 func ExecutePipeline(jobs ...job) {
-	in := make(chan interface{})
-	out := make(chan interface{})
-	wg.Add(4)
+	//wg.Add(4)
+	var outChannels []chan interface{}
 
-	for _, j := range jobs {
-		go j(in, out)
+	for key, job := range jobs {
+		var in chan interface{}
+
+		if key == 0 {
+			in = make(chan interface{})
+		} else {
+			in = outChannels[key-1]
+		}
+
+		out := make(chan interface{})
+		outChannels = append(outChannels, out)
+
+		go job(in, out)
 	}
 }
 
 func SingleHash(in, out chan interface{}) {
-	for val := range out {
+	for val := range in {
 		log.Println("*1*" + " -> val " + val.(string))
 
 		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
 		log.Println("*1* => " + tmp)
-		in <- tmp
-		wg.Done()
+		out <- tmp
+		//wg.Done()
 	}
 
 	//wg.Done()
@@ -68,8 +77,7 @@ func MultiHash(in, out chan interface{}) {
 		}
 
 		log.Println("*2* => " + res)
-		wg.Done()
-		in <- res
+		out <- res
 	}
 
 	log.Println("END IN...")
@@ -78,8 +86,18 @@ func MultiHash(in, out chan interface{}) {
 }
 
 func CombineResults(in, out chan interface{}) {
-	for {
-		wg.Wait()
+	var res interface{}
+
+	for val := range in {
+		log.Println("*3*" + " -> val " + val.(string))
+		res = val.(string) + "_"
+	}
+
+	log.Println("Finish *3* => ")
+	log.Println(res)
+
+	/* for {
+		//wg.Wait()
 		var res []string
 		val, opened := <-in
 		if opened {
@@ -91,5 +109,5 @@ func CombineResults(in, out chan interface{}) {
 			log.Println(res)
 			break
 		}
-	}
+	} */
 }

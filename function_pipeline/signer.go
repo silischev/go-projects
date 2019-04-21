@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 )
 
@@ -18,7 +19,6 @@ func main() {
 			for _, val := range data {
 				log.Println("*** " + strconv.Itoa(int(val)))
 				out <- strconv.Itoa(int(val))
-				//log.Println("after put in out")
 			}
 			close(out)
 		},
@@ -33,7 +33,6 @@ func main() {
 }
 
 func ExecutePipeline(jobs ...job) {
-	//wg.Add(4)
 	var outChannels []chan interface{}
 
 	for key, job := range jobs {
@@ -59,10 +58,9 @@ func SingleHash(in, out chan interface{}) {
 		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
 		log.Println("*1* => " + tmp)
 		out <- tmp
-		//wg.Done()
 	}
 
-	//wg.Done()
+	close(out)
 }
 
 func MultiHash(in, out chan interface{}) {
@@ -80,34 +78,32 @@ func MultiHash(in, out chan interface{}) {
 		out <- res
 	}
 
-	log.Println("END IN...")
-	//wg.Done()
-	close(in)
+	close(out)
 }
 
 func CombineResults(in, out chan interface{}) {
-	var res interface{}
+	var values []string
+	res := ""
 
 	for val := range in {
 		log.Println("*3*" + " -> val " + val.(string))
-		res = val.(string) + "_"
+		//value, _ := strconv.Atoi(val.(string))
+		//value, _ := strconv.ParseInt(val.(string), 10, 64)
+		values = append(values, val.(string))
+		sort.Slice(values, func(i, j int) bool {
+			return values[i] < values[j]
+		})
 	}
 
 	log.Println("Finish *3* => ")
-	log.Println(res)
 
-	/* for {
-		//wg.Wait()
-		var res []string
-		val, opened := <-in
-		if opened {
-			log.Println("*3*" + " -> val " + val.(string))
-			res = append(res, val.(string)+"_")
+	for _, val := range values {
+		if res != "" {
+			res += "_" + val
 		} else {
-			// sort
-			log.Println("Finish *3* => ")
-			log.Println(res)
-			break
+			res = val
 		}
-	} */
+	}
+
+	log.Println(res)
 }

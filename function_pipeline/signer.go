@@ -1,24 +1,20 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"sort"
 	"strconv"
+	"sync"
 )
-
-//var mu sync.Mutex
-//var wg sync.WaitGroup
 
 func main() {
 	data := []int{0, 1}
-	//data := []int{0}
 
 	jobs := []job{
 		func(in, out chan interface{}) {
 			for _, val := range data {
-				log.Println("*** " + strconv.Itoa(int(val)))
-				out <- strconv.Itoa(int(val))
+				log.Println("*** " + strconv.Itoa(val))
+				out <- strconv.Itoa(val)
 			}
 			close(out)
 		},
@@ -29,26 +25,32 @@ func main() {
 
 	ExecutePipeline(jobs...)
 
-	fmt.Scanln()
+	//fmt.Scanln()
 }
 
 func ExecutePipeline(jobs ...job) {
 	var outChannels []chan interface{}
+	wg := &sync.WaitGroup{}
 
-	for key, job := range jobs {
-		var in chan interface{}
+	in := make(chan interface{})
 
-		if key == 0 {
-			in = make(chan interface{})
-		} else {
+	for key, j := range jobs {
+		if key > 0 {
 			in = outChannels[key-1]
 		}
 
 		out := make(chan interface{})
 		outChannels = append(outChannels, out)
 
-		go job(in, out)
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, j job, in, out chan interface{}) {
+			j(in, out)
+			close(out)
+			wg.Done()
+		}(wg, j, in, out)
 	}
+
+	wg.Wait()
 }
 
 func SingleHash(in, out chan interface{}) {
@@ -56,7 +58,6 @@ func SingleHash(in, out chan interface{}) {
 		log.Println("*1*" + " -> val " + val.(string))
 
 		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
-		log.Println("*1* => " + tmp)
 		out <- tmp
 	}
 
@@ -74,7 +75,6 @@ func MultiHash(in, out chan interface{}) {
 			res += DataSignerCrc32(step + val.(string))
 		}
 
-		log.Println("*2* => " + res)
 		out <- res
 	}
 
@@ -87,8 +87,6 @@ func CombineResults(in, out chan interface{}) {
 
 	for val := range in {
 		log.Println("*3*" + " -> val " + val.(string))
-		//value, _ := strconv.Atoi(val.(string))
-		//value, _ := strconv.ParseInt(val.(string), 10, 64)
 		values = append(values, val.(string))
 		sort.Slice(values, func(i, j int) bool {
 			return values[i] < values[j]

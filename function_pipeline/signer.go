@@ -31,7 +31,6 @@ func main() {
 func ExecutePipeline(jobs ...job) {
 	var outChannels []chan interface{}
 	wg := &sync.WaitGroup{}
-
 	in := make(chan interface{})
 
 	for key, j := range jobs {
@@ -55,13 +54,10 @@ func ExecutePipeline(jobs ...job) {
 
 func SingleHash(in, out chan interface{}) {
 	for val := range in {
-		log.Println("*1*" + " -> val " + val.(string))
-
-		tmp := DataSignerCrc32(val.(string)) + "~" + DataSignerCrc32(DataSignerMd5(val.(string)))
+		log.Println("*1*" + " -> val " + strconv.Itoa(val.(int)))
+		tmp := DataSignerCrc32(strconv.Itoa(val.(int))) + "~" + DataSignerCrc32(DataSignerMd5(strconv.Itoa(val.(int))))
 		out <- tmp
 	}
-
-	close(out)
 }
 
 func MultiHash(in, out chan interface{}) {
@@ -70,15 +66,13 @@ func MultiHash(in, out chan interface{}) {
 		steps := []string{"0", "1", "2", "3", "4", "5"}
 		res := ""
 
-		log.Println("*2* ->" + "before cycle")
+		//log.Println("*2* ->" + "before cycle")
 		for _, step := range steps {
 			res += DataSignerCrc32(step + val.(string))
 		}
 
 		out <- res
 	}
-
-	close(out)
 }
 
 func CombineResults(in, out chan interface{}) {
@@ -103,5 +97,7 @@ func CombineResults(in, out chan interface{}) {
 		}
 	}
 
-	log.Println(res)
+	//log.Println(res)
+
+	out <- res
 }

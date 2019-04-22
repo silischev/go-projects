@@ -9,23 +9,31 @@ import (
 
 func main() {
 	data := []int{0, 1}
+	res := ""
 
 	jobs := []job{
 		func(in, out chan interface{}) {
 			for _, val := range data {
 				log.Println("*** " + strconv.Itoa(val))
-				out <- strconv.Itoa(val)
+				out <- val
 			}
-			close(out)
 		},
 		SingleHash,
 		MultiHash,
 		CombineResults,
+		job(func(in, out chan interface{}) {
+			dataRaw := <-in
+			data, ok := dataRaw.(string)
+			if !ok {
+				log.Fatal("cant convert result data to string")
+			}
+			res = data
+		}),
 	}
 
 	ExecutePipeline(jobs...)
 
-	//fmt.Scanln()
+	log.Println(res)
 }
 
 func ExecutePipeline(jobs ...job) {
@@ -55,6 +63,7 @@ func ExecutePipeline(jobs ...job) {
 func SingleHash(in, out chan interface{}) {
 	for val := range in {
 		log.Println("*1*" + " -> val " + strconv.Itoa(val.(int)))
+
 		tmp := DataSignerCrc32(strconv.Itoa(val.(int))) + "~" + DataSignerCrc32(DataSignerMd5(strconv.Itoa(val.(int))))
 		out <- tmp
 	}
@@ -62,13 +71,33 @@ func SingleHash(in, out chan interface{}) {
 
 func MultiHash(in, out chan interface{}) {
 	for val := range in {
-		log.Println("*2*" + " -> val " + val.(string))
-		steps := []string{"0", "1", "2", "3", "4", "5"}
-		res := ""
+		wg := &sync.WaitGroup{}
+		mu := &sync.Mutex{}
 
-		//log.Println("*2* ->" + "before cycle")
+		log.Println("*2*" + " -> val " + val.(string))
+
+		steps := []int{0, 1, 2, 3, 4, 5}
+		var results []string = make([]string, 6)
+
+		log.Println("*2* ->" + "before cycle")
 		for _, step := range steps {
-			res += DataSignerCrc32(step + val.(string))
+			wg.Add(1)
+			go func(wg *sync.WaitGroup, mu *sync.Mutex, st int, results []string) {
+				defer wg.Done()
+				res := DataSignerCrc32(strconv.Itoa(st) + val.(string))
+
+				mu.Lock()
+				results[st] = res
+				mu.Unlock()
+			}(wg, mu, step, results)
+		}
+
+		wg.Wait()
+
+		res := ""
+		for key, val := range results {
+			log.Println(strconv.Itoa(key) + " -> " + val)
+			res += val
 		}
 
 		out <- res
@@ -82,22 +111,22 @@ func CombineResults(in, out chan interface{}) {
 	for val := range in {
 		log.Println("*3*" + " -> val " + val.(string))
 		values = append(values, val.(string))
-		sort.Slice(values, func(i, j int) bool {
-			return values[i] < values[j]
-		})
 	}
+
+	sort.Slice(values, func(i, j int) bool {
+		return values[i] < values[j]
+	})
 
 	log.Println("Finish *3* => ")
 
 	for _, val := range values {
-		if res != "" {
-			res += "_" + val
-		} else {
+		if res == "" {
 			res = val
+			continue
 		}
-	}
 
-	//log.Println(res)
+		res += "_" + val
+	}
 
 	out <- res
 }

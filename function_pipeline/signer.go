@@ -63,72 +63,100 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
+	mu := &sync.Mutex{}
+	wgCommon := &sync.WaitGroup{}
+
 	for val := range in {
-		start := time.Now()
-		//log.Println("*1*" + " -> val " + strconv.Itoa(val.(int)))
+		wgCommon.Add(1)
+		go func(wgCommon *sync.WaitGroup, mu *sync.Mutex, val int, out chan interface{}) {
+			defer wgCommon.Done()
 
-		wg := &sync.WaitGroup{}
-		res1 := ""
-		res2 := ""
+			start := time.Now()
+			//log.Println("*1*" + " -> val " + strconv.Itoa(val.(int)))
 
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			defer wg.Done()
-			res1 = DataSignerCrc32(strconv.Itoa(val.(int)))
-		}(wg)
+			wg := &sync.WaitGroup{}
+			res1 := ""
+			res2 := ""
 
-		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
-			defer wg.Done()
-			res2 = DataSignerCrc32(DataSignerMd5(strconv.Itoa(val.(int))))
-		}(wg)
+			wg.Add(1)
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+				res1 = DataSignerCrc32(strconv.Itoa(val))
+			}(wg)
+			//res1 = DataSignerCrc32(strconv.Itoa(val))
 
-		wg.Wait()
+			wg.Add(1)
+			go func(wgCommon *sync.WaitGroup, wg *sync.WaitGroup, mu *sync.Mutex) {
+				defer wg.Done()
 
-		end := time.Since(start)
-		log.Println(fmt.Sprintf("******** 1 => %s", end))
+				mu.Lock()
+				md5 := DataSignerMd5(strconv.Itoa(val))
+				mu.Unlock()
+				res2 = DataSignerCrc32(md5)
+			}(wgCommon, wg, mu)
 
-		out <- res1 + "~" + res2
+			/* mu.Lock()
+			md5 := DataSignerMd5(strconv.Itoa(val))
+			mu.Unlock()
+			res2 = DataSignerCrc32(md5) */
+
+			wg.Wait()
+
+			end := time.Since(start)
+			log.Println(fmt.Sprintf("******** 1 => %s", end))
+
+			out <- res1 + "~" + res2
+		}(wgCommon, mu, val.(int), out)
 	}
+
+	wgCommon.Wait()
 }
 
 func MultiHash(in, out chan interface{}) {
+	wgCommon := &sync.WaitGroup{}
+
 	for val := range in {
-		start := time.Now()
+		wgCommon.Add(1)
+		go func(wgCommon *sync.WaitGroup, val string, out chan interface{}) {
+			defer wgCommon.Done()
+			start := time.Now()
 
-		wg := &sync.WaitGroup{}
-		mu := &sync.Mutex{}
+			wg := &sync.WaitGroup{}
+			mu := &sync.Mutex{}
 
-		//log.Println("*2*" + " -> val " + val.(string))
+			log.Println("*2*" + " -> val " + val)
 
-		steps := []int{0, 1, 2, 3, 4, 5}
-		var results []string = make([]string, 6)
+			steps := []int{0, 1, 2, 3, 4, 5}
+			var results []string = make([]string, 6)
 
-		//log.Println("*2* ->" + "before cycle")
-		for _, step := range steps {
-			wg.Add(1)
-			go func(wg *sync.WaitGroup, mu *sync.Mutex, st int, results []string) {
-				defer wg.Done()
-				res := DataSignerCrc32(strconv.Itoa(st) + val.(string))
+			//log.Println("*2* ->" + "before cycle")
+			for _, step := range steps {
+				wg.Add(1)
+				go func(wg *sync.WaitGroup, mu *sync.Mutex, st int, results []string) {
+					defer wg.Done()
+					res := DataSignerCrc32(strconv.Itoa(st) + val)
 
-				mu.Lock()
-				results[st] = res
-				mu.Unlock()
-			}(wg, mu, step, results)
-		}
+					mu.Lock()
+					results[st] = res
+					mu.Unlock()
+				}(wg, mu, step, results)
+			}
 
-		wg.Wait()
+			wg.Wait()
 
-		res := ""
-		for _, val := range results {
-			res += val
-		}
+			res := ""
+			for _, val := range results {
+				res += val
+			}
 
-		end := time.Since(start)
-		log.Println(fmt.Sprintf("******** 2 => %s", end))
+			end := time.Since(start)
+			log.Println(fmt.Sprintf("******** 2 => %s", end))
 
-		out <- res
+			out <- res
+		}(wgCommon, val.(string), out)
 	}
+
+	wgCommon.Wait()
 }
 
 func CombineResults(in, out chan interface{}) {

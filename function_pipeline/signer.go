@@ -101,7 +101,7 @@ func MultiHash(in, out chan interface{}) {
 
 	for val := range in {
 		wgCommon.Add(1)
-		go func(wgCommon *sync.WaitGroup, val string, out chan interface{}) {
+		go func(wgCommon *sync.WaitGroup, val string) {
 			defer wgCommon.Done()
 
 			wg := &sync.WaitGroup{}
@@ -130,7 +130,7 @@ func MultiHash(in, out chan interface{}) {
 			}
 
 			out <- res
-		}(wgCommon, val.(string), out)
+		}(wgCommon, val.(string))
 	}
 
 	wgCommon.Wait()

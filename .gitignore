@@ -3,3 +3,6 @@
 /nbproject
 .phpstorm.meta.php
 .php_cs.cache
+/prog_optimiz/cpu.out
+/prog_optimiz/mem.out
+/prog_optimiz/*.exe

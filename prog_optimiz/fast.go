@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ func FastSearch(out io.Writer) {
 
 	seenBrowsers := []string{}
 	uniqueBrowsers := 0
-	foundUsers := ""
+	var foundUsers bytes.Buffer
 
 	lines := strings.Split(string(fileContents), "\n")
 
@@ -101,9 +102,9 @@ func FastSearch(out io.Writer) {
 
 		// log.Println("Android and MSIE user:", user["name"], user["email"])
 		email := strings.Replace(user["email"].(string), "@", " [at] ", -1)
-		foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user["name"], email)
+		foundUsers.WriteString(fmt.Sprintf("[%d] %s <%s>\n", i, user["name"], email))
 	}
 
-	fmt.Fprintln(out, "found users:\n"+foundUsers)
+	fmt.Fprintln(out, "found users:\n"+foundUsers.String())
 	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
 }

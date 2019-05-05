@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"strings"
 )
 
@@ -17,54 +16,35 @@ type UserData struct {
 
 // вам надо написать более быструю оптимальную этой функции
 func FastSearch(out io.Writer) {
-	file, err := os.Open(filePath)
+	fileContents, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		panic(err)
 	}
 
-	fileContents, err := ioutil.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-
-	seenBrowsers := []string{}
 	uniqueBrowsers := 0
 	var foundUsers bytes.Buffer
+	var user UserData
 
 	lines := strings.Split(string(fileContents), "\n")
+	seenBrowsers := make(map[string]string, len(lines))
 
 	for i, line := range lines {
-		user := UserData{}
 		user.UnmarshalJSON([]byte(line))
 
 		isAndroid := false
 		isMSIE := false
 
-		browsers := user.Browsers
-
-		for _, browser := range browsers {
+		for _, browser := range user.Browsers {
 			if strings.Contains(browser, "Android") {
 				isAndroid = true
-				notSeenBefore := true
-				for _, item := range seenBrowsers {
-					if item == browser {
-						notSeenBefore = false
-					}
-				}
-				if notSeenBefore {
-					seenBrowsers = append(seenBrowsers, browser)
+				if _, ok := seenBrowsers[browser]; !ok {
+					seenBrowsers[browser] = browser
 					uniqueBrowsers++
 				}
 			} else if strings.Contains(browser, "MSIE") {
 				isMSIE = true
-				notSeenBefore := true
-				for _, item := range seenBrowsers {
-					if item == browser {
-						notSeenBefore = false
-					}
-				}
-				if notSeenBefore {
-					seenBrowsers = append(seenBrowsers, browser)
+				if _, ok := seenBrowsers[browser]; !ok {
+					seenBrowsers[browser] = browser
 					uniqueBrowsers++
 				}
 			}

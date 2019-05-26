@@ -46,7 +46,6 @@ func main() {
 		switch f.(type) {
 		case *ast.FuncDecl:
 			currFunc := f.(*ast.FuncDecl)
-			log.Println(currFunc.Name)
 
 			if currFunc.Doc != nil {
 				for _, comment := range currFunc.Doc.List {
@@ -60,10 +59,10 @@ func main() {
 
 						val, exist := structures[structureName]
 						if exist {
-							val.urlsHandlers[url(commentData.Url)] = action(structureName)
+							val.urlsHandlers[url(commentData.Url)] = action(currFunc.Name.Name)
 						} else {
 							structure := &structData{}
-							structure.urlsHandlers = map[url]action{url(commentData.Url): action(structureName)}
+							structure.urlsHandlers = map[url]action{url(commentData.Url): action(currFunc.Name.Name)}
 							structures[structureName] = structure
 						}
 					}
@@ -71,9 +70,6 @@ func main() {
 
 				//fmt.Println(fmt.Sprintf("%#v", currFunc.Doc.List))
 			}
-
-			log.Println("**************")
-			//log.Println(structures)
 		}
 
 		/* g, ok := f.(*ast.GenDecl)
@@ -99,9 +95,17 @@ func main() {
 	}
 
 	//fmt.Println(fmt.Sprintf("%#v", structures))
-	log.Println(structures)
+	//log.Println(structures)
 
-	//fmt.Fprintln(`func ServeHTTP(w http.ResponseWriter, req *http.Request) {`)
-	//fmt.Fprintln(``)
-	//fmt.Fprintln(`}`)
+	for structName, val := range structures {
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, fmt.Sprintf(`func (structure %s) ServeHTTP(w http.ResponseWriter, req *http.Request) {`, structName))
+		fmt.Fprintln(out, "\t"+`switch req.URL.Path {`)
+		for url, handler := range val.urlsHandlers {
+			fmt.Fprintln(out, fmt.Sprintf("\t"+`case "%s":`, url))
+			fmt.Fprintln(out, fmt.Sprintf("\t\t"+`structure.%s(w, req)`, handler))
+		}
+		fmt.Fprintln(out, "\t"+`}`)
+		fmt.Fprintln(out, `}`)
+	}
 }

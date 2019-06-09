@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -62,7 +64,12 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 		result, _ := json.Marshal(r)
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(string(result)))
+
+		return
 	}
+
+	h.getTableRowsFromDb(tblName)
+	//log.Println(rows)
 
 }
 
@@ -82,4 +89,23 @@ func (h *dbHandler) getTablesFromDb() []string {
 	}
 
 	return tblNames
+}
+
+func (h *dbHandler) getTableRowsFromDb(table string) {
+	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM %s", table))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//log.Println(rows)
+
+	var tblRows interface{}
+
+	defer rows.Close()
+	for rows.Next() {
+		rows.Scan(&tblRows)
+		log.Println(tblRows)
+	}
+
+	//return tblRows
 }

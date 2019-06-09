@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -16,26 +17,19 @@ type responseData struct {
 
 // тут вы пишете код
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
-func NewDbExplorer(db *sql.DB) (*dbHandler, error) {
+func NewDbExplorer(db *sql.DB) (*http.ServeMux, error) {
 	handler := &dbHandler{
 		db: db,
 	}
 
-	return handler, nil
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler.getTables)
+	//mux.HandleFunc("/{table}", handler.getTables)
+
+	return mux, nil
 }
 
-func (h *dbHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	res := ""
-
-	switch req.URL.Path {
-	case "/":
-		res = h.getTables()
-	}
-
-	w.Write([]byte(res))
-}
-
-func (h *dbHandler) getTables() string {
+func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 	r := responseData{}
 	r.Response = make(map[string]interface{})
 
@@ -54,11 +48,16 @@ func (h *dbHandler) getTables() string {
 	}
 
 	r.Response["tables"] = tblNames
-
 	result, _ := json.Marshal(r)
-	/* fmt.Println(string(result))
-	log.Println(r)
-	log.Fatal("***") */
 
-	return string(result)
+	w.Write([]byte(string(result)))
+}
+
+func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
+	//keys, ok := r.URL.Query()["key"]
+	limit := req.Form.Get("limit")
+	offset := req.Form.Get("offset")
+
+	log.Println(limit)
+	log.Println(offset)
 }

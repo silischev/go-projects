@@ -3,36 +3,70 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type dbHandler struct {
 	db *sql.DB
 }
 
-type responseData struct {
+type successResponseData struct {
 	Response map[string]interface{} `json:"response"`
+}
+
+type errorResponseData struct {
+	Error string `json:"error"`
 }
 
 // тут вы пишете код
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
-func NewDbExplorer(db *sql.DB) (*http.ServeMux, error) {
+func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	handler := &dbHandler{
 		db: db,
 	}
 
-	mux := http.NewServeMux()
+	mux := mux.NewRouter()
 	mux.HandleFunc("/", handler.getTables)
-	//mux.HandleFunc("/{table}", handler.getTables)
+	mux.HandleFunc("/{table}", handler.getTableRows)
 
 	return mux, nil
 }
 
 func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
-	r := responseData{}
+	r := successResponseData{}
 	r.Response = make(map[string]interface{})
 
+	r.Response["tables"] = h.getTablesFromDb()
+	result, _ := json.Marshal(r)
+
+	w.Write([]byte(string(result)))
+}
+
+func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tblName := vars["table"]
+	tblNames := h.getTablesFromDb()
+	found := false
+
+	for _, value := range tblNames {
+		if value == tblName {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		r := errorResponseData{Error: "unknown table"}
+		result, _ := json.Marshal(r)
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(string(result)))
+	}
+
+}
+
+func (h *dbHandler) getTablesFromDb() []string {
 	rows, err := h.db.Query("SHOW TABLES;")
 	if err != nil {
 		panic(err)
@@ -47,17 +81,5 @@ func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 		tblNames = append(tblNames, tblName)
 	}
 
-	r.Response["tables"] = tblNames
-	result, _ := json.Marshal(r)
-
-	w.Write([]byte(string(result)))
-}
-
-func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
-	//keys, ok := r.URL.Query()["key"]
-	limit := req.Form.Get("limit")
-	offset := req.Form.Get("offset")
-
-	log.Println(limit)
-	log.Println(offset)
+	return tblNames
 }

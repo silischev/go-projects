@@ -68,8 +68,8 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	h.getTableRowsFromDb(tblName)
-	//log.Println(rows)
+	res := h.getTableRowsFromDb(tblName)
+	log.Println(res)
 
 }
 
@@ -91,21 +91,46 @@ func (h *dbHandler) getTablesFromDb() []string {
 	return tblNames
 }
 
-func (h *dbHandler) getTableRowsFromDb(table string) {
+func (h *dbHandler) getTableRowsFromDb(table string) []map[string]interface{} {
 	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM %s", table))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//log.Println(rows)
-
-	var tblRows interface{}
+	cols, _ := rows.Columns()
+	res := make(map[string]interface{})
+	res2 := make([]map[string]interface{}, 2)
 
 	defer rows.Close()
 	for rows.Next() {
-		rows.Scan(&tblRows)
-		log.Println(tblRows)
+		values := make([]interface{}, len(cols))
+		pointers := make([]interface{}, len(cols))
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+
+		rows.Scan(pointers...)
+
+		for i, colName := range cols {
+			var v interface{}
+			byteVal, ok := values[i].([]byte)
+
+			if ok {
+				v = string(byteVal)
+			} else {
+				v = values[i]
+			}
+
+			res[colName] = v
+		}
+
+		//log.Fatal(res)
+
+		res2 = append(res2, res)
+		//log.Fatal(res2)
 	}
 
-	//return tblRows
+	log.Fatal(res2)
+
+	return res2
 }

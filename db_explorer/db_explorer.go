@@ -22,8 +22,19 @@ type errorResponseData struct {
 	Error string `json:"error"`
 }
 
-// тут вы пишете код
-// обращаю ваше внимание - в этом задании запрещены глобальные переменные
+type dbTblRowAttrValue struct {
+	Attr string
+	Val  interface{}
+}
+
+type dbTblRow struct {
+	Row []dbTblRowAttrValue
+}
+
+type dbTblResultSet struct {
+	Records []dbTblRow
+}
+
 func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	handler := &dbHandler{
 		db: db,
@@ -69,7 +80,6 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	}
 
 	res := h.getTableRowsFromDb(tblName)
-	log.Println(res)
 
 }
 
@@ -91,15 +101,14 @@ func (h *dbHandler) getTablesFromDb() []string {
 	return tblNames
 }
 
-func (h *dbHandler) getTableRowsFromDb(table string) []map[string]interface{} {
+func (h *dbHandler) getTableRowsFromDb(table string) dbTblResultSet {
 	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM %s", table))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	cols, _ := rows.Columns()
-	res := make(map[string]interface{})
-	res2 := make([]map[string]interface{}, 2)
+	dbTblRs := dbTblResultSet{}
 
 	defer rows.Close()
 	for rows.Next() {
@@ -111,6 +120,7 @@ func (h *dbHandler) getTableRowsFromDb(table string) []map[string]interface{} {
 
 		rows.Scan(pointers...)
 
+		dbTblRow := dbTblRow{}
 		for i, colName := range cols {
 			var v interface{}
 			byteVal, ok := values[i].([]byte)
@@ -121,16 +131,11 @@ func (h *dbHandler) getTableRowsFromDb(table string) []map[string]interface{} {
 				v = values[i]
 			}
 
-			res[colName] = v
+			dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: v})
 		}
 
-		//log.Fatal(res)
-
-		res2 = append(res2, res)
-		//log.Fatal(res2)
+		dbTblRs.Records = append(dbTblRs.Records, dbTblRow)
 	}
 
-	log.Fatal(res2)
-
-	return res2
+	return dbTblRs
 }

@@ -14,9 +14,17 @@ type dbHandler struct {
 	db *sql.DB
 }
 
-type successResponseData struct {
+/* type successResponseData struct {
 	Response map[string]interface{} `json:"response"`
+} */
+
+type dbResponseResultSet struct {
+	Records map[string]interface{} `json:"records"`
 }
+
+/* type dbResponseResultSet struct {
+	Records []map[string]interface{}
+} */
 
 type errorResponseData struct {
 	Error string `json:"error"`
@@ -47,14 +55,19 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	return mux, nil
 }
 
-func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
-	r := successResponseData{}
-	r.Response = make(map[string]interface{})
+func ResponseWriter(w http.ResponseWriter, req *http.Request, data map[string]interface{}) {
+	response := make(map[string]interface{})
+	response["response"] = data
 
-	r.Response["tables"] = h.getTablesFromDb()
-	result, _ := json.Marshal(r)
-
+	result, _ := json.Marshal(response)
 	w.Write([]byte(string(result)))
+}
+
+func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
+	data := make(map[string]interface{})
+	data["tables"] = h.getTablesFromDb()
+
+	ResponseWriter(w, req, data)
 }
 
 func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
@@ -81,12 +94,41 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 
 	res := h.getTableRowsFromDb(tblName)
 
+	var dbResponseRs []map[string]interface{}
+	//var dbResponseRs []interface{}
+	for _, row := range res.Records {
+		rowData := make(map[string]interface{})
+
+		for _, val := range row.Row {
+			rowData[val.Attr] = val.Val
+		}
+
+		dbResponseRs = append(dbResponseRs, rowData)
+	}
+
+	//fmt.Println(fmt.Sprintf("%#v", dbResponseRs))
+	log.Fatal(dbResponseRs)
+
+	/* response, err := json.Marshal(dbResponseRs)
+	if err != nil {
+		log.Fatal(err)
+	} */
+
+	/* dbRs := dbResponseResultSet{}
+	dbRs.Records = make(map[string]interface{})
+	dbRs.Records = string(response)
+
+	result, _ := json.Marshal(dbRs)
+	//log.Fatal(string(response))
+	log.Fatal(string(result)) */
+
+	//ResponseWriter(w, req, dbResponseRs)
 }
 
 func (h *dbHandler) getTablesFromDb() []string {
 	rows, err := h.db.Query("SHOW TABLES;")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var tblName string

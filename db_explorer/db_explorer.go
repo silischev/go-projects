@@ -95,7 +95,6 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	res := h.getTableRowsFromDb(tblName)
 
 	var dbResponseRs []map[string]interface{}
-	//var dbResponseRs []interface{}
 	for _, row := range res.Records {
 		rowData := make(map[string]interface{})
 
@@ -103,26 +102,18 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 			rowData[val.Attr] = val.Val
 		}
 
+		log.Fatal(row)
+
 		dbResponseRs = append(dbResponseRs, rowData)
 	}
 
-	//fmt.Println(fmt.Sprintf("%#v", dbResponseRs))
+	fmt.Println(fmt.Sprintf("%#v", dbResponseRs))
 	log.Fatal(dbResponseRs)
 
-	/* response, err := json.Marshal(dbResponseRs)
-	if err != nil {
-		log.Fatal(err)
-	} */
+	data := make(map[string]interface{})
+	data["records"] = dbResponseRs
 
-	/* dbRs := dbResponseResultSet{}
-	dbRs.Records = make(map[string]interface{})
-	dbRs.Records = string(response)
-
-	result, _ := json.Marshal(dbRs)
-	//log.Fatal(string(response))
-	log.Fatal(string(result)) */
-
-	//ResponseWriter(w, req, dbResponseRs)
+	ResponseWriter(w, req, data)
 }
 
 func (h *dbHandler) getTablesFromDb() []string {

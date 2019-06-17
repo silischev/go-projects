@@ -102,13 +102,8 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 			rowData[val.Attr] = val.Val
 		}
 
-		log.Fatal(row)
-
 		dbResponseRs = append(dbResponseRs, rowData)
 	}
-
-	fmt.Println(fmt.Sprintf("%#v", dbResponseRs))
-	log.Fatal(dbResponseRs)
 
 	data := make(map[string]interface{})
 	data["records"] = dbResponseRs
@@ -158,14 +153,23 @@ func (h *dbHandler) getTableRowsFromDb(table string) dbTblResultSet {
 			var v interface{}
 			byteVal, ok := values[i].([]byte)
 
+			//log.Println(colName)
+			//log.Fatal(values[i])
+
 			if ok {
+				//log.Println("*1*")
+				//log.Println(string(byteVal))
 				v = string(byteVal)
 			} else {
+				//log.Println("*2*")
+				//log.Println(values[i])
 				v = values[i]
 			}
 
 			dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: v})
 		}
+
+		//log.Fatal("***")
 
 		dbTblRs.Records = append(dbTblRs.Records, dbTblRow)
 	}

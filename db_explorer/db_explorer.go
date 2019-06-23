@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 
@@ -14,33 +13,12 @@ type dbHandler struct {
 	db *sql.DB
 }
 
-/* type successResponseData struct {
-	Response map[string]interface{} `json:"response"`
-} */
-
 type dbResponseResultSet struct {
 	Records map[string]interface{} `json:"records"`
 }
 
-/* type dbResponseResultSet struct {
-	Records []map[string]interface{}
-} */
-
 type errorResponseData struct {
 	Error string `json:"error"`
-}
-
-type dbTblRowAttrValue struct {
-	Attr string
-	Val  interface{}
-}
-
-type dbTblRow struct {
-	Row []dbTblRowAttrValue
-}
-
-type dbTblResultSet struct {
-	Records []dbTblRow
 }
 
 func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
@@ -92,21 +70,33 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	res := h.getTableRowsFromDb(tblName)
-
-	var dbResponseRs []map[string]interface{}
-	for _, row := range res.Records {
-		rowData := make(map[string]interface{})
-
-		for _, val := range row.Row {
-			rowData[val.Attr] = val.Val
-		}
-
-		dbResponseRs = append(dbResponseRs, rowData)
+	cols, err := getColumns(h.db, tblName)
+	if err != nil {
+		log.Fatal(err)
 	}
 
+	res, err := getRows(h.db, tblName, cols)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Fatal(res)
+
 	data := make(map[string]interface{})
-	data["records"] = dbResponseRs
+
+	/*
+		var dbResponseRs []map[string]interface{}
+		for _, row := range res.Records {
+			rowData := make(map[string]interface{})
+
+			for _, val := range row.Row {
+				rowData[val.Attr] = val.Val
+			}
+
+			dbResponseRs = append(dbResponseRs, rowData)
+		} */
+
+	//data := make(map[string]interface{})
+	//data["records"] = dbResponseRs
 
 	ResponseWriter(w, req, data)
 }
@@ -127,52 +117,4 @@ func (h *dbHandler) getTablesFromDb() []string {
 	}
 
 	return tblNames
-}
-
-func (h *dbHandler) getTableRowsFromDb(table string) dbTblResultSet {
-	rows, err := h.db.Query(fmt.Sprintf("SELECT * FROM %s", table))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	cols, _ := rows.Columns()
-	dbTblRs := dbTblResultSet{}
-
-	defer rows.Close()
-	for rows.Next() {
-		values := make([]interface{}, len(cols))
-		pointers := make([]interface{}, len(cols))
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-
-		rows.Scan(pointers...)
-
-		dbTblRow := dbTblRow{}
-		for i, colName := range cols {
-			var v interface{}
-			byteVal, ok := values[i].([]byte)
-
-			//log.Println(colName)
-			//log.Fatal(values[i])
-
-			if ok {
-				//log.Println("*1*")
-				//log.Println(string(byteVal))
-				v = string(byteVal)
-			} else {
-				//log.Println("*2*")
-				//log.Println(values[i])
-				v = values[i]
-			}
-
-			dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: v})
-		}
-
-		//log.Fatal("***")
-
-		dbTblRs.Records = append(dbTblRs.Records, dbTblRow)
-	}
-
-	return dbTblRs
 }

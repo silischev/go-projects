@@ -79,24 +79,20 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Fatal(res)
+
+	var dbResponseRs []map[string]interface{}
+	for _, row := range res {
+		rowData := make(map[string]interface{})
+
+		for _, val := range row.Row {
+			rowData[val.Attr] = val.Val
+		}
+
+		dbResponseRs = append(dbResponseRs, rowData)
+	}
 
 	data := make(map[string]interface{})
-
-	/*
-		var dbResponseRs []map[string]interface{}
-		for _, row := range res.Records {
-			rowData := make(map[string]interface{})
-
-			for _, val := range row.Row {
-				rowData[val.Attr] = val.Val
-			}
-
-			dbResponseRs = append(dbResponseRs, rowData)
-		} */
-
-	//data := make(map[string]interface{})
-	//data["records"] = dbResponseRs
+	data["records"] = dbResponseRs
 
 	ResponseWriter(w, req, data)
 }

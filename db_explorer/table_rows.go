@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"strconv"
 )
 
 type dbTblRowAttrValue struct {
@@ -28,7 +28,8 @@ func getRows(db *sql.DB, table string, columns []dbColumn) ([]dbTblRow, error) {
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		pointers := make([]interface{}, len(cols))
-		for i := range values {
+
+		for i, _ := range values {
 			pointers[i] = &values[i]
 		}
 
@@ -38,24 +39,27 @@ func getRows(db *sql.DB, table string, columns []dbColumn) ([]dbTblRow, error) {
 		for i, colName := range cols {
 			for _, column := range columns {
 				if colName == column.Name {
-					switch column.Type {
-					//case int
-					}
+					var commonVal interface{}
+					var strVal string
 
-					var v interface{}
 					byteVal, ok := values[i].([]byte)
 
 					if ok {
-						v = string(byteVal)
+						switch column.Type {
+						case "int":
+							strVal = string(byteVal)
+							commonVal, _ = strconv.ParseInt(strVal, 10, 64)
+						case "varchar", "text":
+							commonVal = string(byteVal)
+						}
 					} else {
-						v = values[i]
+						commonVal = values[i]
 					}
 
-					log.Println(v)
+					dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: commonVal})
 				}
-			}
 
-			//dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: v})
+			}
 		}
 
 		dbTblRs = append(dbTblRs, dbTblRow)

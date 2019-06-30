@@ -42,9 +42,12 @@ func SuccessResponseWrapper(w http.ResponseWriter, req *http.Request, data map[s
 	w.Write([]byte(string(result)))
 }
 
-func ErrorResponseWrapper(w http.ResponseWriter, req *http.Request, responseData errorResponseData) {
-	result, _ := json.Marshal(responseData)
-	w.WriteHeader(responseData.status)
+func ErrorResponseWrapper(w http.ResponseWriter, req *http.Request, data string, status int) {
+	response := make(map[string]interface{})
+	response["error"] = data
+
+	result, _ := json.Marshal(response)
+	w.WriteHeader(status)
 	w.Write([]byte(string(result)))
 }
 
@@ -69,12 +72,7 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !found {
-		r := errorResponseData{
-			Error:  "unknown table",
-			status: http.StatusNotFound,
-		}
-
-		ErrorResponseWrapper(w, req, r)
+		ErrorResponseWrapper(w, req, "unknown table", http.StatusNotFound)
 
 		return
 	}

@@ -18,7 +18,8 @@ type dbResponseResultSet struct {
 }
 
 type errorResponseData struct {
-	Error string `json:"error"`
+	Error  string `json:"error"`
+	status int
 }
 
 func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
@@ -33,7 +34,7 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	return mux, nil
 }
 
-func ResponseWriter(w http.ResponseWriter, req *http.Request, data map[string]interface{}) {
+func SuccessResponseWrapper(w http.ResponseWriter, req *http.Request, data map[string]interface{}) {
 	response := make(map[string]interface{})
 	response["response"] = data
 
@@ -41,11 +42,17 @@ func ResponseWriter(w http.ResponseWriter, req *http.Request, data map[string]in
 	w.Write([]byte(string(result)))
 }
 
+func ErrorResponseWrapper(w http.ResponseWriter, req *http.Request, responseData errorResponseData) {
+	result, _ := json.Marshal(responseData)
+	w.WriteHeader(responseData.status)
+	w.Write([]byte(string(result)))
+}
+
 func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	data["tables"] = h.getTablesFromDb()
 
-	ResponseWriter(w, req, data)
+	SuccessResponseWrapper(w, req, data)
 }
 
 func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
@@ -62,10 +69,12 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !found {
-		r := errorResponseData{Error: "unknown table"}
-		result, _ := json.Marshal(r)
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(string(result)))
+		r := errorResponseData{
+			Error:  "unknown table",
+			status: http.StatusNotFound,
+		}
+
+		ErrorResponseWrapper(w, req, r)
 
 		return
 	}
@@ -94,7 +103,7 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	data["records"] = dbResponseRs
 
-	ResponseWriter(w, req, data)
+	SuccessResponseWrapper(w, req, data)
 }
 
 func (h *dbHandler) getTablesFromDb() []string {

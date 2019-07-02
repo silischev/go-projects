@@ -19,7 +19,9 @@ func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int
 	query := fmt.Sprintf("SELECT * FROM %s", table)
 	rows, err := db.Query(query)
 
-	if limit > 0 && offset > 0 {
+	defer rows.Close()
+
+	if limit > 0 {
 		rows, err = db.Query(query+" LIMIT ? OFFSET ?", limit, offset)
 	}
 
@@ -30,7 +32,7 @@ func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int
 	cols, _ := rows.Columns()
 	var dbTblRs []dbTblRow
 
-	defer rows.Close()
+	//defer rows.Close()
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		pointers := make([]interface{}, len(cols))

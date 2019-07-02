@@ -40,8 +40,8 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	tblName := vars["table"]
 
-	var limit int
-	var offset int
+	limit := 0
+	offset := 0
 	var err error
 
 	if req.FormValue("limit") != "" {
@@ -50,19 +50,14 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 			ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
 			return
 		}
-	} else {
-		limit = 0
 	}
 
 	if req.FormValue("offset") != "" {
 		offset, err = strconv.Atoi(req.FormValue("offset"))
 		if err != nil {
-			log.Fatal(err)
 			ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
 			return
 		}
-	} else {
-		offset = 0
 	}
 
 	tblNames := h.getTablesFromDb()

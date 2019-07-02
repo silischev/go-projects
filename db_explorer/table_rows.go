@@ -15,8 +15,14 @@ type dbTblRow struct {
 	Row []dbTblRowAttrValue
 }
 
-func getRows(db *sql.DB, table string, columns []dbColumn) ([]dbTblRow, error) {
-	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s", table))
+func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTblRow, error) {
+	query := fmt.Sprintf("SELECT * FROM %s", table)
+	rows, err := db.Query(query)
+
+	if limit > 0 && offset > 0 {
+		rows, err = db.Query(query+" LIMIT ? OFFSET ?", limit, offset)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +35,7 @@ func getRows(db *sql.DB, table string, columns []dbColumn) ([]dbTblRow, error) {
 		values := make([]interface{}, len(cols))
 		pointers := make([]interface{}, len(cols))
 
-		for i, _ := range values {
+		for i := range values {
 			pointers[i] = &values[i]
 		}
 

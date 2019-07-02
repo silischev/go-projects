@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -15,11 +15,6 @@ type dbHandler struct {
 
 type dbResponseResultSet struct {
 	Records map[string]interface{} `json:"records"`
-}
-
-type errorResponseData struct {
-	Error  string `json:"error"`
-	status int
 }
 
 func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
@@ -34,23 +29,6 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	return mux, nil
 }
 
-func SuccessResponseWrapper(w http.ResponseWriter, req *http.Request, data map[string]interface{}) {
-	response := make(map[string]interface{})
-	response["response"] = data
-
-	result, _ := json.Marshal(response)
-	w.Write([]byte(string(result)))
-}
-
-func ErrorResponseWrapper(w http.ResponseWriter, req *http.Request, data string, status int) {
-	response := make(map[string]interface{})
-	response["error"] = data
-
-	result, _ := json.Marshal(response)
-	w.WriteHeader(status)
-	w.Write([]byte(string(result)))
-}
-
 func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	data["tables"] = h.getTablesFromDb()
@@ -61,6 +39,32 @@ func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	tblName := vars["table"]
+
+	var limit int
+	var offset int
+	var err error
+
+	if req.FormValue("limit") != "" {
+		limit, err = strconv.Atoi(req.FormValue("limit"))
+		if err != nil {
+			ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+			return
+		}
+	} else {
+		limit = 0
+	}
+
+	if req.FormValue("offset") != "" {
+		offset, err = strconv.Atoi(req.FormValue("offset"))
+		if err != nil {
+			log.Fatal(err)
+			ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+			return
+		}
+	} else {
+		offset = 0
+	}
+
 	tblNames := h.getTablesFromDb()
 	found := false
 
@@ -72,8 +76,7 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !found {
-		ErrorResponseWrapper(w, req, "unknown table", http.StatusNotFound)
-
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
 		return
 	}
 
@@ -82,7 +85,7 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 		log.Fatal(err)
 	}
 
-	res, err := getRows(h.db, tblName, cols)
+	res, err := getRows(h.db, tblName, cols, limit, offset)
 	if err != nil {
 		log.Fatal(err)
 	}

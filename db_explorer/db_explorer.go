@@ -23,8 +23,9 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	}
 
 	mux := mux.NewRouter()
-	mux.HandleFunc("/", handler.getTables)
-	mux.HandleFunc("/{table}", handler.getTableRows)
+	mux.HandleFunc("/", handler.getTables).Methods("GET")
+	mux.HandleFunc("/{table}", handler.getRows).Methods("GET")
+	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
 
 	return mux, nil
 }
@@ -36,7 +37,7 @@ func (h *dbHandler) getTables(w http.ResponseWriter, req *http.Request) {
 	SuccessResponseWrapper(w, req, data)
 }
 
-func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
+func (h *dbHandler) getRows(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	tblName := vars["table"]
 
@@ -60,17 +61,7 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	tblNames := h.getTablesFromDb()
-	found := false
-
-	for _, value := range tblNames {
-		if value == tblName {
-			found = true
-			break
-		}
-	}
-
-	if !found {
+	if !isTableExist(tblName, h.getTablesFromDb()) {
 		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
 		return
 	}
@@ -102,6 +93,22 @@ func (h *dbHandler) getTableRows(w http.ResponseWriter, req *http.Request) {
 	SuccessResponseWrapper(w, req, data)
 }
 
+func (h *dbHandler) getItem(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tblName := vars["table"]
+
+	if !isTableExist(tblName, h.getTablesFromDb()) {
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
+		return
+	}
+
+	var dbResponse map[string]interface{}
+	data := make(map[string]interface{})
+	data["records"] = dbResponse
+
+	SuccessResponseWrapper(w, req, data)
+}
+
 func (h *dbHandler) getTablesFromDb() []string {
 	rows, err := h.db.Query("SHOW TABLES;")
 	if err != nil {
@@ -118,4 +125,14 @@ func (h *dbHandler) getTablesFromDb() []string {
 	}
 
 	return tblNames
+}
+
+func isTableExist(tblName string, tblNames []string) bool {
+	for _, value := range tblNames {
+		if value == tblName {
+			return true
+		}
+	}
+
+	return false
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strconv"
 )
 
@@ -13,6 +14,13 @@ type dbTblRowAttrValue struct {
 
 type dbTblRow struct {
 	Row []dbTblRowAttrValue
+}
+
+func getItem(db *sql.DB, table string, id int) (dbTblRow, error) {
+	row := db.QueryRow(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
+
+	log.Fatal(row)
+
 }
 
 func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTblRow, error) {

@@ -16,23 +16,26 @@ type dbTblRow struct {
 }
 
 func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTblRow, error) {
-	query := fmt.Sprintf("SELECT * FROM %s", table)
-	rows, err := db.Query(query)
+	var rows *sql.Rows
+	var err error
 
-	defer rows.Close()
+	query := fmt.Sprintf("SELECT * FROM %s", table)
 
 	if limit > 0 {
 		rows, err = db.Query(query+" LIMIT ? OFFSET ?", limit, offset)
+	} else {
+		rows, err = db.Query(query)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
+	defer rows.Close()
+
 	cols, _ := rows.Columns()
 	var dbTblRs []dbTblRow
 
-	//defer rows.Close()
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		pointers := make([]interface{}, len(cols))

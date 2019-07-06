@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -12,7 +13,11 @@ func SuccessResponseWrapper(w http.ResponseWriter, req *http.Request, data map[s
 	response := make(map[string]interface{})
 	response["response"] = data
 
-	result, _ := json.Marshal(response)
+	result, err := json.Marshal(response)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	w.Write([]byte(string(result)))
 }
 
@@ -20,7 +25,11 @@ func ErrorResponseWrapper(w http.ResponseWriter, req *http.Request, data string,
 	response := make(map[string]interface{})
 	response["error"] = data
 
-	result, _ := json.Marshal(response)
+	result, err := json.Marshal(response)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	w.WriteHeader(status)
 	w.Write([]byte(string(result)))
 }

@@ -16,16 +16,24 @@ type dbTuple struct {
 }
 
 func getItem(db *sql.DB, table string, id int, columns []dbColumn) (dbTuple, error) {
-	dbTuple := dbTuple{}
-	/*rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
+	tuple := dbTuple{}
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
 	if err != nil {
-		return dbTuple, err
+		return tuple, err
 	}
 
 	defer rows.Close()
-	*/
 
-	return dbTuple, nil
+	cols, _ := rows.Columns()
+	var dbTblRs []dbTuple
+
+	for rows.Next() {
+		dbTblRs = append(dbTblRs, getTuple(cols, rows, columns))
+	}
+
+	tuple = dbTblRs[0]
+
+	return tuple, nil
 }
 
 func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTuple, error) {

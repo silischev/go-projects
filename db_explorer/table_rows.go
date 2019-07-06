@@ -3,27 +3,32 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strconv"
 )
 
-type dbTblRowAttrValue struct {
-	Attr string
-	Val  interface{}
+type dbTblAttrValue struct {
+	AttrName string
+	Val      interface{}
 }
 
-type dbTblRow struct {
-	Row []dbTblRowAttrValue
+type dbTuple struct {
+	Value []dbTblAttrValue
 }
 
-func getItem(db *sql.DB, table string, id int) (dbTblRow, error) {
-	row := db.QueryRow(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
+func getItem(db *sql.DB, table string, id int, columns []dbColumn) (dbTuple, error) {
+	dbTuple := dbTuple{}
+	/*rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
+	if err != nil {
+		return dbTuple, err
+	}
 
-	log.Fatal(row)
+	defer rows.Close()
+	*/
 
+	return dbTuple, nil
 }
 
-func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTblRow, error) {
+func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int) ([]dbTuple, error) {
 	var rows *sql.Rows
 	var err error
 
@@ -42,47 +47,51 @@ func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int
 	defer rows.Close()
 
 	cols, _ := rows.Columns()
-	var dbTblRs []dbTblRow
+	var dbTblRs []dbTuple
 
 	for rows.Next() {
-		values := make([]interface{}, len(cols))
-		pointers := make([]interface{}, len(cols))
-
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-
-		rows.Scan(pointers...)
-
-		dbTblRow := dbTblRow{}
-		for i, colName := range cols {
-			for _, column := range columns {
-				if colName == column.Name {
-					var commonVal interface{}
-					var strVal string
-
-					byteVal, ok := values[i].([]byte)
-
-					if ok {
-						switch column.Type {
-						case "int":
-							strVal = string(byteVal)
-							commonVal, _ = strconv.ParseInt(strVal, 10, 64)
-						case "varchar", "text":
-							commonVal = string(byteVal)
-						}
-					} else {
-						commonVal = values[i]
-					}
-
-					dbTblRow.Row = append(dbTblRow.Row, dbTblRowAttrValue{Attr: colName, Val: commonVal})
-				}
-
-			}
-		}
-
-		dbTblRs = append(dbTblRs, dbTblRow)
+		dbTblRs = append(dbTblRs, getTuple(cols, rows, columns))
 	}
 
 	return dbTblRs, nil
+}
+
+func getTuple(cols []string, rows *sql.Rows, columns []dbColumn) dbTuple {
+	dbTuple := dbTuple{}
+	values := make([]interface{}, len(cols))
+	pointers := make([]interface{}, len(cols))
+
+	for i := range values {
+		pointers[i] = &values[i]
+	}
+
+	rows.Scan(pointers...)
+
+	for i, colName := range cols {
+		for _, column := range columns {
+			if colName == column.Name {
+				var commonVal interface{}
+				var strVal string
+
+				byteVal, ok := values[i].([]byte)
+
+				if ok {
+					switch column.Type {
+					case "int":
+						strVal = string(byteVal)
+						commonVal, _ = strconv.ParseInt(strVal, 10, 64)
+					case "varchar", "text":
+						commonVal = string(byteVal)
+					}
+				} else {
+					commonVal = values[i]
+				}
+
+				dbTuple.Value = append(dbTuple.Value, dbTblAttrValue{AttrName: colName, Val: commonVal})
+			}
+
+		}
+	}
+
+	return dbTuple
 }

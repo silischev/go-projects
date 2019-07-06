@@ -13,10 +13,6 @@ type dbHandler struct {
 	db *sql.DB
 }
 
-type dbResponseResultSet struct {
-	Records map[string]interface{} `json:"records"`
-}
-
 func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	handler := &dbHandler{
 		db: db,
@@ -25,7 +21,7 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	mux := mux.NewRouter()
 	mux.HandleFunc("/", handler.getTables).Methods("GET")
 	mux.HandleFunc("/{table}", handler.getRows).Methods("GET")
-	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
+	//mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
 
 	return mux, nil
 }
@@ -80,8 +76,8 @@ func (h *dbHandler) getRows(w http.ResponseWriter, req *http.Request) {
 	for _, row := range res {
 		rowData := make(map[string]interface{})
 
-		for _, val := range row.Row {
-			rowData[val.Attr] = val.Val
+		for _, val := range row.Value {
+			rowData[val.AttrName] = val.Val
 		}
 
 		dbResponseRs = append(dbResponseRs, rowData)
@@ -96,17 +92,37 @@ func (h *dbHandler) getRows(w http.ResponseWriter, req *http.Request) {
 func (h *dbHandler) getItem(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	tblName := vars["table"]
+	var id int
 
 	if !isTableExist(tblName, h.getTablesFromDb()) {
 		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
 		return
 	}
 
-	var dbResponse map[string]interface{}
-	data := make(map[string]interface{})
-	data["records"] = dbResponse
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
 
-	SuccessResponseWrapper(w, req, data)
+	if !isTableExist(tblName, h.getTablesFromDb()) {
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
+		return
+	}
+
+	cols, err := getColumns(h.db, tblName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	res, err := getItem(h.db, tblName, id, cols)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Fatal(res)
+
+	//SuccessResponseWrapper(w, req, data)
 }
 
 func (h *dbHandler) getTablesFromDb() []string {

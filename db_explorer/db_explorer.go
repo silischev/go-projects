@@ -120,6 +120,11 @@ func (h *dbHandler) getItem(w http.ResponseWriter, req *http.Request) {
 		log.Fatal(err)
 	}
 
+	if len(res.Value) == 0 {
+		ErrorResponseWrapper(w, req, RecordNotFound, http.StatusNotFound)
+		return
+	}
+
 	rowData := make(map[string]interface{})
 
 	for _, val := range res.Value {

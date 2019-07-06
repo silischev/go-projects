@@ -31,7 +31,9 @@ func getItem(db *sql.DB, table string, id int, columns []dbColumn) (dbTuple, err
 		dbTblRs = append(dbTblRs, getTuple(cols, rows, columns))
 	}
 
-	tuple = dbTblRs[0]
+	if len(dbTblRs) > 0 {
+		tuple = dbTblRs[0]
+	}
 
 	return tuple, nil
 }

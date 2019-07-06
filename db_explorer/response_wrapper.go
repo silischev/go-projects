@@ -7,6 +7,7 @@ import (
 )
 
 const UnknownTblErr = "unknown table"
+const RecordNotFound = "record not found"
 const InternalErr = "internal error"
 
 func SuccessResponseWrapper(w http.ResponseWriter, req *http.Request, data map[string]interface{}) {

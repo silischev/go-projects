@@ -7,7 +7,6 @@ import (
 type dbColumn struct {
 	Name string
 	Type string
-	//IsNull bool // IS_NULLABLE
 }
 
 func getColumns(db *sql.DB, table string) ([]dbColumn, error) {

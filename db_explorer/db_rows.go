@@ -66,6 +66,17 @@ func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int
 	return dbTblRs, nil
 }
 
+func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]interface{}) ([]dbTuple, error) {
+	cols, _ := rows.Columns()
+	var dbTblRs []dbTuple
+
+	for rows.Next() {
+		dbTblRs = append(dbTblRs, getTuple(cols, rows, columns))
+	}
+
+	return dbTblRs, nil
+}
+
 func getTuple(cols []string, rows *sql.Rows, columns []dbColumn) dbTuple {
 	dbTuple := dbTuple{}
 	values := make([]interface{}, len(cols))

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -22,6 +23,7 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	mux.HandleFunc("/", handler.getTables).Methods("GET")
 	mux.HandleFunc("/{table}", handler.getRows).Methods("GET")
 	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
+	mux.HandleFunc("/{table}/", handler.createItem).Methods("PUT")
 
 	return mux, nil
 }
@@ -112,12 +114,14 @@ func (h *dbHandler) getItem(w http.ResponseWriter, req *http.Request) {
 
 	cols, err := getColumns(h.db, tblName)
 	if err != nil {
-		log.Fatal(err)
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
 	}
 
 	res, err := getItem(h.db, tblName, id, cols)
 	if err != nil {
-		log.Fatal(err)
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
 	}
 
 	if len(res.Value) == 0 {
@@ -133,6 +137,36 @@ func (h *dbHandler) getItem(w http.ResponseWriter, req *http.Request) {
 
 	data := make(map[string]interface{})
 	data["record"] = rowData
+
+	SuccessResponseWrapper(w, req, data)
+}
+
+func (h *dbHandler) createItem(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tblName := vars["table"]
+
+	if !isTableExist(tblName, h.getTablesFromDb()) {
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	var reqBodyParams map[string]interface{}
+	err := decoder.Decode(&reqBodyParams)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	cols, err := getColumns(h.db, tblName)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	createItem(h.db, tblName, cols, reqBodyParams)
+
+	data := make(map[string]interface{})
 
 	SuccessResponseWrapper(w, req, data)
 }

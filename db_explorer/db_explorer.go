@@ -164,9 +164,17 @@ func (h *dbHandler) createItem(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	createItem(h.db, tblName, cols, reqBodyParams)
-
 	data := make(map[string]interface{})
+	delete(reqBodyParams, "id")
+	result, err := createItem(h.db, tblName, cols, reqBodyParams)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	for _, row := range result {
+		data[row.Value[0].AttrName] = row.Value[0].Val
+	}
 
 	SuccessResponseWrapper(w, req, data)
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type dbTblAttrValue struct {
@@ -67,12 +68,34 @@ func getRows(db *sql.DB, table string, columns []dbColumn, limit int, offset int
 }
 
 func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]interface{}) ([]dbTuple, error) {
-	cols, _ := rows.Columns()
 	var dbTblRs []dbTuple
+	var columnsNames []string
+	var placeholders []string
+	var values []interface{}
 
-	for rows.Next() {
-		dbTblRs = append(dbTblRs, getTuple(cols, rows, columns))
+	for _, column := range columns {
+		if val, ok := data[column.Name]; ok {
+			columnsNames = append(columnsNames, column.Name)
+			placeholders = append(placeholders, "?")
+			values = append(values, val)
+		}
 	}
+
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(columnsNames, ","), strings.Join(placeholders, ","))
+
+	result, err := db.Exec(query, values...)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	row := dbTblAttrValue{"id", id}
+	dbTuple := dbTuple{[]dbTblAttrValue{row}}
+	dbTblRs = append(dbTblRs, dbTuple)
 
 	return dbTblRs, nil
 }

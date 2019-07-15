@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -110,10 +111,18 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 	var values []interface{}
 
 	for _, column := range columns {
+		if column.ColumnKey.String == PrimaryKey {
+			continue
+		}
+
 		if val, ok := data[column.Name]; ok {
 			columnsNames = append(columnsNames, column.Name+" = ?")
 			values = append(values, val)
 		}
+	}
+
+	if len(columnsNames) == 0 && data["id"] != nil {
+		return nil, NewHttpError("field id have invalid type", http.StatusBadRequest)
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = %v", table, strings.Join(columnsNames, ","), id)

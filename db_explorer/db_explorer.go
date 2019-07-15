@@ -168,6 +168,11 @@ func (h *dbHandler) createItem(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	result, err := createItem(h.db, tblName, cols, reqBodyParams)
 	if err != nil {
+		if httpErr, ok := err.(httpError); ok {
+			ErrorResponseWrapper(w, req, httpErr.OriginalError.Error(), httpErr.Status)
+			return
+		}
+
 		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
 		return
 	}
@@ -211,6 +216,11 @@ func (h *dbHandler) updateItem(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	result, err := updateItem(h.db, tblName, id, cols, reqBodyParams)
 	if err != nil {
+		if httpErr, ok := err.(httpError); ok {
+			ErrorResponseWrapper(w, req, httpErr.OriginalError.Error(), httpErr.Status)
+			return
+		}
+
 		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
 		return
 	}

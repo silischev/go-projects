@@ -100,6 +100,37 @@ func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]in
 	return dbTblRs, nil
 }
 
+func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[string]interface{}) ([]dbTuple, error) {
+	var dbTblRs []dbTuple
+	var columnsNames []string
+	var values []interface{}
+
+	for _, column := range columns {
+		if val, ok := data[column.Name]; ok {
+			columnsNames = append(columnsNames, column.Name+" = ?")
+			values = append(values, val)
+		}
+	}
+
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = %v", table, strings.Join(columnsNames, ","), id)
+
+	result, err := db.Exec(query, values...)
+	if err != nil {
+		return nil, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+
+	row := dbTblAttrValue{"updated", rowsAffected}
+	dbTuple := dbTuple{[]dbTblAttrValue{row}}
+	dbTblRs = append(dbTblRs, dbTuple)
+
+	return dbTblRs, nil
+}
+
 func getTuple(cols []string, rows *sql.Rows, columns []dbColumn) dbTuple {
 	dbTuple := dbTuple{}
 	values := make([]interface{}, len(cols))

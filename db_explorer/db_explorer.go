@@ -24,6 +24,7 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	mux.HandleFunc("/{table}", handler.getRows).Methods("GET")
 	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
 	mux.HandleFunc("/{table}/", handler.createItem).Methods("PUT")
+	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.updateItem).Methods("POST")
 
 	return mux, nil
 }
@@ -167,6 +168,50 @@ func (h *dbHandler) createItem(w http.ResponseWriter, req *http.Request) {
 	data := make(map[string]interface{})
 	delete(reqBodyParams, "id")
 	result, err := createItem(h.db, tblName, cols, reqBodyParams)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	for _, row := range result {
+		data[row.Value[0].AttrName] = row.Value[0].Val
+	}
+
+	SuccessResponseWrapper(w, req, data)
+}
+
+func (h *dbHandler) updateItem(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tblName := vars["table"]
+
+	if !isTableExist(tblName, h.getTablesFromDb()) {
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
+		return
+	}
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	var reqBodyParams map[string]interface{}
+	err = decoder.Decode(&reqBodyParams)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	cols, err := getColumns(h.db, tblName)
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	data := make(map[string]interface{})
+	delete(reqBodyParams, "id")
+	result, err := updateItem(h.db, tblName, id, cols, reqBodyParams)
 	if err != nil {
 		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
 		return

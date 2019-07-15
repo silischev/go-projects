@@ -74,6 +74,10 @@ func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]in
 	var values []interface{}
 
 	for _, column := range columns {
+		if column.ColumnKey.String == PrimaryKey {
+			continue
+		}
+
 		if val, ok := data[column.Name]; ok {
 			columnsNames = append(columnsNames, column.Name)
 			placeholders = append(placeholders, "?")

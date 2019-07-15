@@ -166,7 +166,6 @@ func (h *dbHandler) createItem(w http.ResponseWriter, req *http.Request) {
 	}
 
 	data := make(map[string]interface{})
-	delete(reqBodyParams, "id")
 	result, err := createItem(h.db, tblName, cols, reqBodyParams)
 	if err != nil {
 		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
@@ -210,7 +209,6 @@ func (h *dbHandler) updateItem(w http.ResponseWriter, req *http.Request) {
 	}
 
 	data := make(map[string]interface{})
-	delete(reqBodyParams, "id")
 	result, err := updateItem(h.db, tblName, id, cols, reqBodyParams)
 	if err != nil {
 		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)

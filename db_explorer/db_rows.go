@@ -111,18 +111,19 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 	var values []interface{}
 
 	for _, column := range columns {
-		if column.ColumnKey.String == PrimaryKey {
-			continue
+		val, ok := data[column.Name]
+		varType := fmt.Sprintf("%T", data[column.Name])
+		isTypeMismatch := (!column.IsNullable && val == nil) || (!column.IsNullable && varType != column.Type) || (column.IsNullable && varType != column.Type && val != nil)
+		isPrimaryKey := column.ColumnKey.String == PrimaryKey
+
+		if ok && (isTypeMismatch || isPrimaryKey) {
+			return nil, NewHttpError(fmt.Sprintf("field %s have invalid type", column.Name), http.StatusBadRequest)
 		}
 
-		if val, ok := data[column.Name]; ok {
+		if ok && (varType == column.Type || column.IsNullable) {
 			columnsNames = append(columnsNames, column.Name+" = ?")
 			values = append(values, val)
 		}
-	}
-
-	if len(columnsNames) == 0 && data["id"] != nil {
-		return nil, NewHttpError("field id have invalid type", http.StatusBadRequest)
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = %v", table, strings.Join(columnsNames, ","), id)
@@ -168,7 +169,7 @@ func getTuple(cols []string, rows *sql.Rows, columns []dbColumn) dbTuple {
 					case "int":
 						strVal = string(byteVal)
 						commonVal, _ = strconv.ParseInt(strVal, 10, 64)
-					case "varchar", "text":
+					case "string":
 						commonVal = string(byteVal)
 					}
 				} else {

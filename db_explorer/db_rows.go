@@ -113,7 +113,7 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 	for _, column := range columns {
 		val, ok := data[column.Name]
 		varType := fmt.Sprintf("%T", data[column.Name])
-		isTypeMismatch := (!column.IsNullable && val == nil) || (!column.IsNullable && varType != column.Type) || (column.IsNullable && varType != column.Type && val != nil)
+		isTypeMismatch := (!column.IsNullable && (val == nil || varType != column.Type)) || (column.IsNullable && varType != column.Type && val != nil)
 		isPrimaryKey := column.ColumnKey.String == PrimaryKey
 
 		if ok && (isTypeMismatch || isPrimaryKey) {

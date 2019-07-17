@@ -25,6 +25,7 @@ func NewDbExplorer(db *sql.DB) (*mux.Router, error) {
 	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.getItem).Methods("GET")
 	mux.HandleFunc("/{table}/", handler.createItem).Methods("PUT")
 	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.updateItem).Methods("POST")
+	mux.HandleFunc("/{table}/{id:[0-9]+}", handler.deleteItem).Methods("DELETE")
 
 	return mux, nil
 }
@@ -228,6 +229,38 @@ func (h *dbHandler) updateItem(w http.ResponseWriter, req *http.Request) {
 	for _, row := range result {
 		data[row.Value[0].AttrName] = row.Value[0].Val
 	}
+
+	SuccessResponseWrapper(w, req, data)
+}
+
+func (h *dbHandler) deleteItem(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tblName := vars["table"]
+
+	if !isTableExist(tblName, h.getTablesFromDb()) {
+		ErrorResponseWrapper(w, req, UnknownTblErr, http.StatusNotFound)
+		return
+	}
+
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	data := make(map[string]interface{})
+	result, err := deleteItem(h.db, tblName, id)
+	if err != nil {
+		if httpErr, ok := err.(httpError); ok {
+			ErrorResponseWrapper(w, req, httpErr.OriginalError.Error(), httpErr.Status)
+			return
+		}
+
+		ErrorResponseWrapper(w, req, InternalErr, http.StatusInternalServerError)
+		return
+	}
+
+	data["deleted"] = result
 
 	SuccessResponseWrapper(w, req, data)
 }

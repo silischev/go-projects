@@ -145,6 +145,23 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 	return dbTblRs, nil
 }
 
+func deleteItem(db *sql.DB, table string, id int) (int64, error) {
+	var rowId int
+
+	row := db.QueryRow(fmt.Sprintf("SELECT id FROM %s WHERE id = ?", table), id)
+	err := row.Scan(&rowId)
+	if err != nil {
+		return 0, nil
+	}
+
+	dbRes, err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE id = ?", table), id)
+	if err != nil {
+		return 0, err
+	}
+
+	return dbRes.RowsAffected()
+}
+
 func getTuple(cols []string, rows *sql.Rows, columns []dbColumn) dbTuple {
 	dbTuple := dbTuple{}
 	values := make([]interface{}, len(cols))

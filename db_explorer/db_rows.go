@@ -18,8 +18,10 @@ type dbTuple struct {
 }
 
 func getItem(db *sql.DB, table string, id int, columns []dbColumn) (dbTuple, error) {
+	primaryKeyAttr := getPrimaryKeyAttr(columns)
+
 	tuple := dbTuple{}
-	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s WHERE id = ?", table), id)
+	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", table, primaryKeyAttr.Name), id)
 	if err != nil {
 		return tuple, err
 	}
@@ -110,13 +112,14 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 	var columnsNames []string
 	var values []interface{}
 
+	primaryKeyAttr := getPrimaryKeyAttr(columns)
+
 	for _, column := range columns {
 		val, ok := data[column.Name]
 		varType := fmt.Sprintf("%T", data[column.Name])
 		isTypeMismatch := (!column.IsNullable && (val == nil || varType != column.Type)) || (column.IsNullable && varType != column.Type && val != nil)
-		isPrimaryKey := column.ColumnKey.String == PrimaryKey
 
-		if ok && (isTypeMismatch || isPrimaryKey) {
+		if ok && (isTypeMismatch || column == primaryKeyAttr) {
 			return nil, NewHttpError(fmt.Sprintf("field %s have invalid type", column.Name), http.StatusBadRequest)
 		}
 
@@ -126,7 +129,7 @@ func updateItem(db *sql.DB, table string, id int, columns []dbColumn, data map[s
 		}
 	}
 
-	query := fmt.Sprintf("UPDATE %s SET %s WHERE id = %v", table, strings.Join(columnsNames, ","), id)
+	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s = %v", table, strings.Join(columnsNames, ","), primaryKeyAttr.Name, id)
 
 	result, err := db.Exec(query, values...)
 	if err != nil {

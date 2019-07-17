@@ -46,3 +46,15 @@ func getColumns(db *sql.DB, table string) ([]dbColumn, error) {
 
 	return cols, nil
 }
+
+func getPrimaryKeyAttr(dbColumns []dbColumn) dbColumn {
+	var dbCol dbColumn
+
+	for _, dbColumn := range dbColumns {
+		if dbColumn.ColumnKey.String == PrimaryKey {
+			dbCol = dbColumn
+		}
+	}
+
+	return dbCol
+}

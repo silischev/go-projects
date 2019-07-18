@@ -7,15 +7,16 @@ import (
 const PrimaryKey = "PRI"
 
 type dbColumn struct {
-	Name       string
-	ColumnKey  sql.NullString
-	Type       string
-	IsNullable bool
+	Name         string
+	ColumnKey    sql.NullString
+	Type         string
+	DefaultValue interface{}
+	IsNullable   bool
 }
 
 func getColumns(db *sql.DB, table string) ([]dbColumn, error) {
 	var cols []dbColumn
-	rows, err := db.Query("SELECT COLUMN_NAME, COLUMN_KEY, DATA_TYPE, IS_NULLABLE from information_schema.columns where table_name = ?", table)
+	rows, err := db.Query("SELECT COLUMN_NAME, COLUMN_KEY, DATA_TYPE, IS_NULLABLE from information_schema.columns where table_name = ? AND table_schema = database()", table)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +33,10 @@ func getColumns(db *sql.DB, table string) ([]dbColumn, error) {
 		switch dbColumn.Type {
 		case "varchar", "text":
 			dbColumn.Type = "string"
+			dbColumn.DefaultValue = ""
+		case "int":
+			dbColumn.Type = "int"
+			dbColumn.DefaultValue = 0
 		}
 
 		switch isNullable {
@@ -39,6 +44,7 @@ func getColumns(db *sql.DB, table string) ([]dbColumn, error) {
 			dbColumn.IsNullable = false
 		case "YES":
 			dbColumn.IsNullable = true
+			dbColumn.DefaultValue = nil
 		}
 
 		cols = append(cols, dbColumn)

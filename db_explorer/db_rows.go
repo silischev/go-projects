@@ -81,10 +81,13 @@ func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]in
 			continue
 		}
 
+		columnsNames = append(columnsNames, column.Name)
+		placeholders = append(placeholders, "?")
+
 		if val, ok := data[column.Name]; ok {
-			columnsNames = append(columnsNames, column.Name)
-			placeholders = append(placeholders, "?")
 			values = append(values, val)
+		} else {
+			values = append(values, column.DefaultValue)
 		}
 	}
 
@@ -100,7 +103,9 @@ func createItem(db *sql.DB, table string, columns []dbColumn, data map[string]in
 		return nil, err
 	}
 
-	row := dbTblAttrValue{"id", id}
+	primaryKeyAttr := getPrimaryKeyAttr(columns)
+
+	row := dbTblAttrValue{primaryKeyAttr.Name, id}
 	dbTuple := dbTuple{[]dbTblAttrValue{row}}
 	dbTblRs = append(dbTblRs, dbTuple)
 

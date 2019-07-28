@@ -39,7 +39,8 @@ func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
 	lis, err := net.Listen("tcp", ":8082")
 	if err != nil {
-		log.Fatalln("cant listen port", err)
+		log.Println("cant listen port: ", err)
+		return err
 	}
 
 	server := grpc.NewServer()
@@ -47,7 +48,11 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 
 	RegisterBizServer(server, biz)
 	fmt.Println("starting server at :8082")
-	server.Serve(lis)
+	err = server.Serve(lis)
+	if err != nil {
+		log.Println("Cant serve: ", err)
+		return err
+	}
 
 	return nil
 }

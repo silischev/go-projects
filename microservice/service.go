@@ -1,12 +1,12 @@
 package main
 
 import (
-	"context"
-	fmt "fmt"
+	context "context"
+	"fmt"
 	"log"
 	"net"
 
-	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 // тут вы пишете код
@@ -37,22 +37,43 @@ func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 }
 
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
-	lis, err := net.Listen("tcp", ":8082")
+	/*listener, err := net.Listen("tcp", ":8082")
 	if err != nil {
 		log.Println("cant listen port: ", err)
 		return err
 	}
 
-	server := grpc.NewServer()
-	biz := Biz{}
+	s := grpc.NewServer()
+	biz := Biz{}*/
 
-	RegisterBizServer(server, biz)
-	fmt.Println("starting server at :8082")
-	err = server.Serve(lis)
-	if err != nil {
-		log.Println("Cant serve: ", err)
-		return err
-	}
+	go func(ctx context.Context) error {
+		lis, err := net.Listen("tcp", ":8082")
+		if err != nil {
+			//log.Println("cant listen port: ", err)
+			return err
+		}
+
+		server := grpc.NewServer()
+		biz := Biz{}
+
+		for {
+			select {
+			case <-ctx.Done():
+				lis.Close()
+				server.Stop()
+
+				return nil
+			default:
+				RegisterBizServer(server, biz)
+				fmt.Println("starting server at :8082")
+				err = server.Serve(lis)
+				if err != nil {
+					log.Println("Cant serve: ", err)
+					return err
+				}
+			}
+		}
+	}(ctx)
 
 	return nil
 }

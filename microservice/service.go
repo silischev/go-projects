@@ -1,8 +1,8 @@
 package main
 
 import (
-	context "context"
-	"fmt"
+	"context"
+	"encoding/json"
 	"log"
 	"net"
 
@@ -37,15 +37,26 @@ func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 }
 
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
+	server := grpc.NewServer()
+	biz := Biz{}
+
+	var aclIncomingMess map[string]interface{}
+	err := json.Unmarshal([]byte(ACLData), &aclIncomingMess)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var rules []AclRule
+	for route, methods := range aclIncomingMess {
+		rules = append(rules, AclRule{route, methods})
+	}
+
 	go func(ctx context.Context) error {
-		lis, err := net.Listen("tcp", ":8082")
+		lis, err := net.Listen("tcp", listenAddr)
 		if err != nil {
-			//log.Println("cant listen port: ", err)
 			return err
 		}
-
-		server := grpc.NewServer()
-		biz := Biz{}
 
 		for {
 			select {
@@ -56,7 +67,7 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 				return nil
 			default:
 				RegisterBizServer(server, biz)
-				fmt.Println("starting server at :8082")
+
 				err = server.Serve(lis)
 				if err != nil {
 					log.Println("Cant serve: ", err)

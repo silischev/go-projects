@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net"
 
@@ -40,16 +39,9 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 	server := grpc.NewServer()
 	biz := Biz{}
 
-	var aclIncomingMess map[string]interface{}
-	err := json.Unmarshal([]byte(ACLData), &aclIncomingMess)
-
+	_, err := CreateRulesFromIncomingMessage([]byte(ACLData))
 	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var rules []AclRule
-	for route, methods := range aclIncomingMess {
-		rules = append(rules, AclRule{route, methods})
+		return err
 	}
 
 	go func(ctx context.Context) error {

@@ -5,7 +5,7 @@ import (
 )
 
 type AclRule struct {
-	route   string
+	user    string
 	methods []string
 }
 
@@ -18,8 +18,8 @@ func CreateRulesFromIncomingMessage(message []byte) ([]AclRule, error) {
 	}
 
 	var rules []AclRule
-	for route, methods := range aclIncomingMess {
-		rules = append(rules, AclRule{route, methods})
+	for user, methods := range aclIncomingMess {
+		rules = append(rules, AclRule{user, methods})
 	}
 
 	return rules, nil

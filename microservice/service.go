@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 
+	"google.golang.org/grpc/metadata"
+
 	"google.golang.org/grpc"
 )
 
@@ -31,7 +33,7 @@ func (b Biz) Add(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 }
 
 func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
-	log.Println("In Test()")
+	log.Println(metadata.FromIncomingContext(ctx))
 	return &Nothing{Dummy: true}, nil
 }
 

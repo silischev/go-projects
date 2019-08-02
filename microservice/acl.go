@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 )
 
 type AclRule struct {
@@ -23,4 +24,13 @@ func CreateRulesFromIncomingMessage(message []byte) ([]AclRule, error) {
 	}
 
 	return rules, nil
+}
+
+func hasAccess(context string, rules []AclRule) bool {
+	for rule := range rules {
+		//if
+		log.Println(rule)
+	}
+
+	return false
 }

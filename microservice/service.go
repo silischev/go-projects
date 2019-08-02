@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
+	"strings"
 
 	"google.golang.org/grpc/metadata"
 
@@ -33,18 +35,13 @@ func (b Biz) Add(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 }
 
 func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
-	log.Println(metadata.FromIncomingContext(ctx))
 	return &Nothing{Dummy: true}, nil
 }
 
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(authInterceptor))
 	biz := Biz{}
-
-	_, err := CreateRulesFromIncomingMessage([]byte(ACLData))
-	if err != nil {
-		return err
-	}
 
 	go func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", listenAddr)
@@ -72,4 +69,24 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 	}(ctx)
 
 	return nil
+}
+
+func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	rules, err := CreateRulesFromIncomingMessage([]byte(ACLData))
+	if err != nil {
+		return nil, err
+	}
+
+	md, _ := metadata.FromIncomingContext(ctx)
+	consumer, ok := md["consumer"]
+	if !ok {
+		return nil, errors.New("Field not exist")
+	}
+
+	hasAccess := hasAccess(strings.Join(consumer, ","), rules)
+	if !hasAccess {
+		return nil, errors.New("Access denied")
+	}
+
+	return nil, nil
 }

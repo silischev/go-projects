@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 	"net"
 	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"google.golang.org/grpc/metadata"
 
@@ -22,6 +24,7 @@ type BizServerHandler interface {
 }
 
 type Biz struct {
+	rules []AclRule
 }
 
 func (b Biz) Check(ctx context.Context, nothing *Nothing) (*Nothing, error) {
@@ -40,8 +43,15 @@ func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
 
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
 	server := grpc.NewServer(
-		grpc.UnaryInterceptor(authInterceptor))
-	biz := Biz{}
+		grpc.UnaryInterceptor(authInterceptor),
+	)
+
+	rules, err := CreateRulesFromIncomingMessage([]byte(ACLData))
+	if err != nil {
+		return err
+	}
+
+	biz := Biz{rules}
 
 	go func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", listenAddr)
@@ -72,21 +82,18 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 }
 
 func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	rules, err := CreateRulesFromIncomingMessage([]byte(ACLData))
-	if err != nil {
-		return nil, err
-	}
+	bizServer := info.Server.(Biz)
 
 	md, _ := metadata.FromIncomingContext(ctx)
 	consumer, ok := md["consumer"]
 	if !ok {
-		return nil, errors.New("Field not exist")
+		return nil, status.Errorf(codes.Unauthenticated, "Field not exist")
 	}
 
-	hasAccess := hasAccess(strings.Join(consumer, ","), rules)
+	hasAccess := hasAccess(strings.Join(consumer, ","), bizServer.rules)
 	if !hasAccess {
-		return nil, errors.New("Access denied")
+		return nil, status.Errorf(codes.Unauthenticated, "Access denied")
 	}
 
-	return nil, nil
+	return handler(ctx, req)
 }

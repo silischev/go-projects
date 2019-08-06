@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"regexp"
 )
 
 type AclRule struct {
@@ -26,10 +26,17 @@ func CreateRulesFromIncomingMessage(message []byte) ([]AclRule, error) {
 	return rules, nil
 }
 
-func hasAccess(context string, rules []AclRule) bool {
-	for rule := range rules {
-		//if
-		log.Println(rule)
+func hasAccess(consumer string, method string, rules []AclRule) bool {
+	for _, rule := range rules {
+		if rule.user == consumer {
+			for _, aclMethod := range rule.methods {
+				matched, _ := regexp.Match(aclMethod, []byte(method))
+
+				if matched {
+					return true
+				}
+			}
+		}
 	}
 
 	return false

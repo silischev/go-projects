@@ -90,7 +90,7 @@ func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 		return nil, status.Errorf(codes.Unauthenticated, "Field not exist")
 	}
 
-	hasAccess := hasAccess(strings.Join(consumer, ","), bizServer.rules)
+	hasAccess := hasAccess(strings.Join(consumer, ","), info.FullMethod, bizServer.rules)
 	if !hasAccess {
 		return nil, status.Errorf(codes.Unauthenticated, "Access denied")
 	}

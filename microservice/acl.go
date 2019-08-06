@@ -26,18 +26,34 @@ func CreateRulesFromIncomingMessage(message []byte) ([]AclRule, error) {
 	return rules, nil
 }
 
-func hasAccess(consumer string, method string, rules []AclRule) bool {
+func hasAccess(consumer string, method string, rules []AclRule) (bool, error) {
 	for _, rule := range rules {
 		if rule.user == consumer {
-			for _, aclMethod := range rule.methods {
-				matched, _ := regexp.Match(aclMethod, []byte(method))
+			ok, err := isMethodAvailable(method, rule.methods)
+			if err != nil {
+				return false, err
+			}
 
-				if matched {
-					return true
-				}
+			if ok {
+				return true, nil
 			}
 		}
 	}
 
-	return false
+	return false, nil
+}
+
+func isMethodAvailable(method string, rules []string) (bool, error) {
+	for _, aclMethod := range rules {
+		matched, err := regexp.Match(aclMethod, []byte(method))
+		if err != nil {
+			return false, err
+		}
+
+		if matched {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

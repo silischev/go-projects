@@ -17,29 +17,23 @@ import (
 // тут вы пишете код
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
 
-type BizServerHandler interface {
-	Check(context.Context, Nothing) Nothing
-	Add(context.Context, Nothing) Nothing
-	Test(context.Context, Nothing) Nothing
+type AdminServerHandler interface {
+	Logging(context.Context, Nothing) error
+	Statistics(context.Context, Nothing) error
 }
 
-type Biz struct {
-	rules []AclRule
+/*type Admin struct {
 }
 
-func (b Biz) Check(ctx context.Context, nothing *Nothing) (*Nothing, error) {
-	log.Println("In Check()")
-	return &Nothing{Dummy: true}, nil
+func (adm Admin) Logging(nothing *Nothing) error {
+	log.Println("*Logging()*")
+	return nil
 }
 
-func (b Biz) Add(ctx context.Context, nothing *Nothing) (*Nothing, error) {
-	log.Println("In Add()")
-	return &Nothing{Dummy: true}, nil
-}
-
-func (b Biz) Test(ctx context.Context, nothing *Nothing) (*Nothing, error) {
-	return &Nothing{Dummy: true}, nil
-}
+func (adm Admin) Statistics(ctx context.Context, nothing *Nothing) error {
+	log.Println("*Statistics()*")
+	return nil
+}*/
 
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
 	server := grpc.NewServer(
@@ -52,6 +46,7 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 	}
 
 	biz := Biz{rules}
+	//adm := Admin{}
 
 	go func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", listenAddr)
@@ -68,6 +63,7 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 				return nil
 			default:
 				RegisterBizServer(server, biz)
+				//RegisterAdminServer(server, adm)
 
 				err = server.Serve(lis)
 				if err != nil {

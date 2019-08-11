@@ -5,12 +5,6 @@ import (
 	"log"
 )
 
-type BizServerHandler interface {
-	Check(context.Context, Nothing) Nothing
-	Add(context.Context, Nothing) Nothing
-	Test(context.Context, Nothing) Nothing
-}
-
 type Biz struct {
 	rules []AclRule
 }

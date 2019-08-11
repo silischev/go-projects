@@ -14,7 +14,7 @@ import (
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
 	server := grpc.NewServer(
 		grpc.UnaryInterceptor(authInterceptor),
-		grpc.StreamInterceptor(authStreamInterceptor),
+		grpc.StreamInterceptor(streamInterceptor),
 	)
 
 	rules, err := CreateRulesFromIncomingMessage([]byte(ACLData))

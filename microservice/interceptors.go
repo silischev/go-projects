@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	status "google.golang.org/grpc/status"
+	"google.golang.org/grpc/status"
 )
 
 func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -29,7 +29,7 @@ func authInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServe
 	return handler(ctx, req)
 }
 
-func authStreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func streamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	admServer, ok := srv.(Admin)
 	if !ok {
 		return status.Errorf(codes.Internal, "Server error")
@@ -48,18 +48,18 @@ func authStreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc
 	return nil
 }
 
-func getConsumerFromRequest(ctx context.Context) ([]string, error) {
+func getConsumerFromRequest(ctx context.Context) (string, error) {
 	md, _ := metadata.FromIncomingContext(ctx)
 	consumer, ok := md["consumer"]
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "Field not exist")
+		return "", status.Errorf(codes.Unauthenticated, "Field not exist")
 	}
 
-	return consumer, nil
+	return strings.Join(consumer, ""), nil
 }
 
-func checkConsumerAccess(consumer []string, method string, rules []AclRule) error {
-	hasAccess, err := hasAccess(strings.Join(consumer, ","), method, rules)
+func checkConsumerAccess(consumer string, method string, rules []AclRule) error {
+	hasAccess, err := hasAccess(consumer, method, rules)
 	if err != nil {
 		return err
 	}

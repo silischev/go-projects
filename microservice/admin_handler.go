@@ -10,6 +10,8 @@ type Admin struct {
 
 func (adm Admin) Logging(nothing *Nothing, admLs Admin_LoggingServer) error {
 	log.Println("*Logging()*")
+	//event := &Event{Timestamp: 0, Consumer: "logger", Method: "/main.Admin/Logging", Host: ""}
+	//admLs.Send(event)
 	return nil
 }
 

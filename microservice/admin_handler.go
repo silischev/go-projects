@@ -5,14 +5,20 @@ import (
 )
 
 type Admin struct {
-	rules []AclRule
+	rules    []AclRule
+	consumer string
+	method   string
 }
 
 func (adm Admin) Logging(nothing *Nothing, admLs Admin_LoggingServer) error {
 	for {
-		//log.Println("*Logging()*")
+		event := &Event{
+			Timestamp: 0,
+			Consumer:  adm.consumer,
+			Method:    adm.method,
+			Host:      "127.0.0.1:",
+		}
 
-		event := &Event{Timestamp: 0, Consumer: "logger", Method: "/main.Admin/Logging", Host: "127.0.0.1:"}
 		admLs.Send(event)
 	}
 

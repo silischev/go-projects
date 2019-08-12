@@ -23,7 +23,7 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 	}
 
 	biz := Biz{rules}
-	adm := Admin{rules}
+	adm := Admin{rules: rules}
 
 	go func(ctx context.Context) error {
 		lis, err := net.Listen("tcp", listenAddr)

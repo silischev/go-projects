@@ -45,6 +45,9 @@ func streamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.Str
 		return err
 	}
 
+	admServer.consumer = consumer
+	admServer.method = info.FullMethod
+
 	err = admServer.Logging(&Nothing{}, &adminLoggingServer{stream})
 	if err != nil {
 		return err

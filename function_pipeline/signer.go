@@ -1,96 +1,79 @@
 package main
 
 import (
-	"log"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 func main() {
-	data := []int{0, 1}
-	res := ""
+	input := []int{0, 1}
 
-	jobs := []job{
-		func(in, out chan interface{}) {
-			for _, val := range data {
-				out <- val
-			}
-		},
-		SingleHash,
-		MultiHash,
-		CombineResults,
-		job(func(in, out chan interface{}) {
-			dataRaw := <-in
-			data, ok := dataRaw.(string)
-			if !ok {
-				log.Fatal("cant convert result data to string")
-			}
-			res = data
-		}),
+	initiator := func(in, out chan interface{}) {
+		for _, i := range input {
+			out <- i
+		}
 	}
 
-	ExecutePipeline(jobs...)
+	jobs := []job{initiator, SingleHash, MultiHash, CombineResults}
 
-	log.Println(res)
+	ExecutePipeline(jobs...)
 }
 
-func ExecutePipeline(jobs ...job) {
-	var outChannels []chan interface{}
+func ExecutePipeline(workers ...job) {
 	wg := &sync.WaitGroup{}
-	in := make(chan interface{})
+	outChannels := make([]chan interface{}, len(workers))
 
-	for key, j := range jobs {
-		if key > 0 {
-			in = outChannels[key-1]
+	for num, worker := range workers {
+		var in chan interface{}
+
+		out := make(chan interface{}, MaxInputDataLen)
+		outChannels[num] = out
+
+		if num > 0 {
+			in = outChannels[num-1]
+		} else {
+			in = make(chan interface{}, MaxInputDataLen)
 		}
 
-		out := make(chan interface{})
-		outChannels = append(outChannels, out)
-
 		wg.Add(1)
-		go func(wg *sync.WaitGroup, j job, in, out chan interface{}) {
-			j(in, out)
+		go func(w job) {
+			defer wg.Done()
+			w(in, out)
 			close(out)
-			wg.Done()
-		}(wg, j, in, out)
+		}(worker)
 	}
 
 	wg.Wait()
 }
 
 func SingleHash(in, out chan interface{}) {
-	mu := &sync.Mutex{}
 	wgCommon := &sync.WaitGroup{}
+	mu := &sync.Mutex{}
 
-	for val := range in {
+	for input := range in {
 		wgCommon.Add(1)
-		go func(wgCommon *sync.WaitGroup, mu *sync.Mutex, val int) {
+		go func(val int) {
 			defer wgCommon.Done()
 
-			wg := &sync.WaitGroup{}
-			res1 := ""
-			res2 := ""
+			ch1 := make(chan interface{})
+			ch2 := make(chan interface{})
 
-			wg.Add(1)
-			go func(wg *sync.WaitGroup) {
-				defer wg.Done()
-				res1 = DataSignerCrc32(strconv.Itoa(val))
-			}(wg)
+			go func() {
+				ch1 <- DataSignerCrc32(strconv.Itoa(val))
+			}()
 
-			wg.Add(1)
-			go func(wg *sync.WaitGroup, mu *sync.Mutex) {
-				defer wg.Done()
-
+			go func() {
 				mu.Lock()
-				md5 := DataSignerMd5(strconv.Itoa(val))
+				res := DataSignerMd5(strconv.Itoa(val))
 				mu.Unlock()
-				res2 = DataSignerCrc32(md5)
-			}(wg, mu)
 
-			wg.Wait()
-			out <- res1 + "~" + res2
-		}(wgCommon, mu, val.(int))
+				ch2 <- DataSignerCrc32(res)
+			}()
+
+			out <- (<-ch1).(string) + "~" + (<-ch2).(string)
+		}(input.(int))
 	}
 
 	wgCommon.Wait()
@@ -99,63 +82,51 @@ func SingleHash(in, out chan interface{}) {
 func MultiHash(in, out chan interface{}) {
 	wgCommon := &sync.WaitGroup{}
 
-	for val := range in {
+	for input := range in {
 		wgCommon.Add(1)
-		go func(wgCommon *sync.WaitGroup, val string) {
+		go func(val interface{}) {
 			defer wgCommon.Done()
-
+			result := ""
+			tempRes := make([]string, 6)
 			wg := &sync.WaitGroup{}
-			mu := &sync.Mutex{}
 
-			steps := []int{0, 1, 2, 3, 4, 5}
-			var results []string = make([]string, 6)
-
-			for _, step := range steps {
-				wg.Add(1)
-				go func(wg *sync.WaitGroup, mu *sync.Mutex, st int, results []string) {
+			wg.Add(6)
+			for i := 0; i < 6; i++ {
+				go func(num int) {
 					defer wg.Done()
-					res := DataSignerCrc32(strconv.Itoa(st) + val)
+					ch := make(chan interface{})
 
-					mu.Lock()
-					results[st] = res
-					mu.Unlock()
-				}(wg, mu, step, results)
+					go func() {
+						ch <- DataSignerCrc32(strconv.Itoa(num) + val.(string))
+					}()
+
+					tempRes[num] = (<-ch).(string)
+				}(i)
 			}
 
 			wg.Wait()
 
-			res := ""
-			for _, val := range results {
-				res += val
+			for i := 0; i < 6; i++ {
+				result = result + tempRes[i]
 			}
 
-			out <- res
-		}(wgCommon, val.(string))
+			out <- result
+		}(input)
 	}
 
 	wgCommon.Wait()
 }
 
 func CombineResults(in, out chan interface{}) {
-	var values []string
-	res := ""
+	var data []string
 
-	for val := range in {
-		values = append(values, val.(string))
+	for i := range in {
+		data = append(data, i.(string))
 	}
 
-	sort.Slice(values, func(i, j int) bool {
-		return values[i] < values[j]
+	sort.Slice(data, func(i, j int) bool {
+		return data[i] < data[j]
 	})
 
-	for _, val := range values {
-		if res == "" {
-			res = val
-			continue
-		}
-
-		res += "_" + val
-	}
-
-	out <- res
+	out <- strings.Join(data, "_")
 }

@@ -73,6 +73,8 @@ func SingleHash(in, out chan interface{}) {
 			}()
 
 			out <- (<-ch1).(string) + "~" + (<-ch2).(string)
+			close(ch1)
+			close(ch2)
 		}(input.(int))
 	}
 
@@ -101,6 +103,7 @@ func MultiHash(in, out chan interface{}) {
 					}()
 
 					tempRes[num] = (<-ch).(string)
+					close(ch)
 				}(i)
 			}
 

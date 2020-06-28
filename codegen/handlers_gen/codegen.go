@@ -2,110 +2,74 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"log"
+	"net/http"
 	"os"
 	"strings"
+	"text/template"
 )
 
-const codegenFlag = "// apigen:api"
+const codegenPrefix = "apigen:api"
 
-type url string
-
-type action string
-
-type structData struct {
-	urlsHandlers map[url]action
+type action struct {
+	URL    string
+	Method string
+	Auth   bool
 }
-
-type commentData struct {
-	Url  string
-	Auth bool
-}
-
-var structures = make(map[string]*structData)
 
 func main() {
+	tplVars := make(map[string]interface{})
+	structs := make(map[string][]action)
+
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, os.Args[1], nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
-
-	out, _ := os.Create(os.Args[2])
-
-	fmt.Fprintln(out, `package `+node.Name.Name)
-	fmt.Fprintln(out)
-
-	fmt.Fprintln(out, `import "net/http"`)
 
 	for _, f := range node.Decls {
-		switch f.(type) {
-		case *ast.FuncDecl:
-			currFunc := f.(*ast.FuncDecl)
-
-			if currFunc.Doc != nil {
-				for _, comment := range currFunc.Doc.List {
-					if strings.HasPrefix(comment.Text, codegenFlag) {
-						structureName := currFunc.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
-						commentData := &commentData{}
-						err := json.Unmarshal([]byte(strings.Replace(comment.Text, codegenFlag, "", -1)), commentData)
-						if err != nil {
-							log.Fatal(err)
-						}
-
-						val, exist := structures[structureName]
-						if exist {
-							val.urlsHandlers[url(commentData.Url)] = action(currFunc.Name.Name)
-						} else {
-							structure := &structData{}
-							structure.urlsHandlers = map[url]action{url(commentData.Url): action(currFunc.Name.Name)}
-							structures[structureName] = structure
-						}
-					}
-				}
-
-				//fmt.Println(fmt.Sprintf("%#v", currFunc.Doc.List))
-			}
-		}
-
-		/* g, ok := f.(*ast.GenDecl)
+		function, ok := f.(*ast.FuncDecl)
 		if !ok {
 			continue
-		} */
+		}
 
-		//log.Println(f.(*ast.FuncDecl))
+		comment := function.Doc
+		if comment == nil {
+			continue
+		}
 
-		// for _, spec := range g.Specs {
-		// 	currType, ok := spec.(*ast.TypeSpec)
-		// 	if !ok {
-		// 		continue
-		// 	}
+		if !strings.HasPrefix(comment.Text(), codegenPrefix) {
+			continue
+		}
 
-		// 	/* currStruct, ok := currType.Type.(*ast.StructType)
-		// 	if !ok {
-		// 		continue
-		// 	} */
+		params := comment.Text()[len(codegenPrefix):len(comment.Text())]
+		action := &action{Method: http.MethodGet}
+		err := json.Unmarshal([]byte(params), action)
+		if err != nil {
+			log.Fatalln("Unmarshal err: ", err)
+		}
 
-		// 	log.Println(currType.Name.Name)
-		// }
+		structName := function.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
+		structs[structName] = append(structs[structName], *action)
 	}
 
-	//fmt.Println(fmt.Sprintf("%#v", structures))
-	//log.Println(structures)
+	tplVars["Package"] = node.Name.Name
+	tplVars["Structs"] = structs
+	tpl, err := template.ParseFiles("handlers.tpl")
+	if err != nil {
+		log.Fatalln("Template parse err: ", err)
+	}
 
-	for structName, val := range structures {
-		fmt.Fprintln(out)
-		fmt.Fprintln(out, fmt.Sprintf(`func (structure %s) ServeHTTP(w http.ResponseWriter, req *http.Request) {`, structName))
-		fmt.Fprintln(out, "\t"+`switch req.URL.Path {`)
-		for url, handler := range val.urlsHandlers {
-			fmt.Fprintln(out, fmt.Sprintf("\t"+`case "%s":`, url))
-			fmt.Fprintln(out, fmt.Sprintf("\t\t"+`structure.%s(w, req)`, handler))
-		}
-		fmt.Fprintln(out, "\t"+`}`)
-		fmt.Fprintln(out, `}`)
+	file, err := os.Create(os.Args[2])
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	err = tpl.Execute(file, tplVars)
+	if err != nil {
+		log.Fatalln(err)
 	}
 }

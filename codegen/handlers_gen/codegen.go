@@ -58,6 +58,7 @@ func main() {
 
 	tplVars["Package"] = node.Name.Name
 	tplVars["Structs"] = structs
+
 	tpl, err := template.ParseFiles("handlers.tpl")
 	if err != nil {
 		log.Fatalln("Template parse err: ", err)

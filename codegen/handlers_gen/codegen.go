@@ -16,8 +16,15 @@ const codegenPrefix = "apigen:api"
 
 type action struct {
 	URL    string
+	Name   string
+	Params []queryParams
 	Method string
 	Auth   bool
+}
+
+type queryParams struct {
+	Name  string
+	Rules []string
 }
 
 func main() {
@@ -30,6 +37,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	//validationStructures := make(map[string]string)
 	for _, f := range node.Decls {
 		function, ok := f.(*ast.FuncDecl)
 		if !ok {
@@ -46,7 +54,10 @@ func main() {
 		}
 
 		params := comment.Text()[len(codegenPrefix):len(comment.Text())]
-		action := &action{Method: http.MethodGet}
+		action := &action{
+			Name:   function.Name.Name,
+			Method: http.MethodGet,
+		}
 		err := json.Unmarshal([]byte(params), action)
 		if err != nil {
 			log.Fatalln("Unmarshal err: ", err)

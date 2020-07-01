@@ -19,7 +19,7 @@ import "net/http"
 {{range $name, $actions := .Structs}}
     {{range $action := $actions}}
         func (s *{{$name}}) handler{{$action.Name}}(w http.ResponseWriter, r *http.Request) {
-            params :=
+            params := 1
 
             res, err := s.{{$action.Name}}(ctx, params)
             if err != nil {

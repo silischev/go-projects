@@ -26,12 +26,13 @@ const (
 	RuleDefault   = "default"
 )
 
-type action struct {
-	URL    string
-	Name   string
-	Params []queryParams
-	Method string
-	Auth   bool
+type methodCodegenParams struct {
+	URL              string
+	ValidationStruct string
+	MethodName       string
+	Params           []queryParams
+	HTTPMethod       string
+	Auth             bool
 }
 
 type queryParams struct {
@@ -39,19 +40,15 @@ type queryParams struct {
 	Rules []string
 }
 
-type validationStruct struct {
-	Name   string
-	Fields []validationStructFields
-}
-
 type validationStructFields struct {
+	Name  string
 	Type  string
 	Rules map[string]interface{}
 }
 
 func main() {
 	tplVars := make(map[string]interface{})
-	structs := make(map[string][]action)
+	structs := make(map[string][]methodCodegenParams)
 
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, os.Args[1], nil, parser.ParseComments)
@@ -59,7 +56,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	var validationStructures []validationStruct
+	validationStructures := make(map[string][]validationStructFields)
 	for _, f := range node.Decls {
 		switch f.(type) {
 		case *ast.FuncDecl:
@@ -75,17 +72,18 @@ func main() {
 			}
 
 			params := comment.Text()[len(codegenPrefix):len(comment.Text())]
-			action := &action{
-				Name:   function.Name.Name,
-				Method: http.MethodGet,
+			methodCodegenParams := &methodCodegenParams{
+				MethodName:       function.Name.Name,
+				HTTPMethod:       http.MethodGet,
+				ValidationStruct: fmt.Sprint(function.Type.Params.List[1].Type),
 			}
-			err := json.Unmarshal([]byte(params), action)
+			err := json.Unmarshal([]byte(params), methodCodegenParams)
 			if err != nil {
 				log.Fatalln("Unmarshal err: ", err)
 			}
 
 			structName := function.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
-			structs[structName] = append(structs[structName], *action)
+			structs[structName] = append(structs[structName], *methodCodegenParams)
 		case *ast.GenDecl:
 			g := f.(*ast.GenDecl)
 			for _, spec := range g.Specs {
@@ -108,6 +106,7 @@ func main() {
 						fieldRules := strings.Split(matches[1], ",")
 
 						fields = append(fields, validationStructFields{
+							Name:  fmt.Sprint(field.Names[0].Name),
 							Type:  fmt.Sprint(field.Type),
 							Rules: getRules(fieldRules),
 						})
@@ -115,24 +114,21 @@ func main() {
 				}
 
 				if len(fields) > 0 {
-					validationStructures = append(validationStructures, validationStruct{
-						Name:   currType.Name.Name,
-						Fields: fields,
-					})
+					validationStructures[currType.Name.Name] = fields
 				}
 			}
 		}
 	}
 
-	/*for _, t := range validationStructures {
-		log.Println(t)
-	}*/
-
 	tplVars["Package"] = node.Name.Name
 	tplVars["Structs"] = structs
 	tplVars["ValidationStructs"] = validationStructures
 
-	tpl, err := template.ParseFiles("handlers.tmpl")
+	funcMap := template.FuncMap{
+		"getFilledValidationStructure": getFilledValidationStructure,
+	}
+
+	tpl, err := template.New("handlers.tmpl").Funcs(funcMap).ParseFiles("handlers.tmpl")
 	if err != nil {
 		log.Fatalln("Template parse err: ", err)
 	}
@@ -146,6 +142,17 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func getFilledValidationStructure(fields []validationStructFields, params methodCodegenParams) string {
+	structName := params.ValidationStruct
+	structFields := ""
+
+	for _, field := range fields {
+		structFields += fmt.Sprintf(`%s: "%s",`, field.Name, "1")
+	}
+
+	return fmt.Sprintf("%s{%s}", structName, structFields)
 }
 
 func getRules(rawRules []string) map[string]interface{} {

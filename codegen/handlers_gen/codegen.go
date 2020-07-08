@@ -50,6 +50,34 @@ func main() {
 	tplVars := make(map[string]interface{})
 	structs := make(map[string][]methodCodegenParams)
 
+	file, err := os.Create(os.Args[2])
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	commonPart := `
+		// Code generated automatically. DO NOT EDIT.
+		package {{.Package}}
+		
+		import (
+			"log"
+			"net/http"
+		)
+		
+		{{range $name, $actions := .Structs}}
+			func (h *{{$name}}) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+					{{range $action := $actions}}
+						case "{{$action.URL}}":
+							h.handler{{$action.MethodName}}(w, r)
+					{{end}}
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}
+		{{end}}
+	`
+
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, os.Args[1], nil, parser.ParseComments)
 	if err != nil {
@@ -122,37 +150,73 @@ func main() {
 
 	tplVars["Package"] = node.Name.Name
 	tplVars["Structs"] = structs
-	tplVars["ValidationStructs"] = validationStructures
+	//tplVars["ValidationStructs"] = validationStructures
 
-	funcMap := template.FuncMap{
-		"getFilledValidationStructure": getFilledValidationStructure,
-	}
-
-	tpl, err := template.New("handlers.tmpl").Funcs(funcMap).ParseFiles("handlers.tmpl")
-	if err != nil {
-		log.Fatalln("Template parse err: ", err)
-	}
-
-	file, err := os.Create(os.Args[2])
-	if err != nil {
-		log.Fatalln(err)
-	}
-
+	tpl := template.Must(template.New("").Parse(commonPart))
 	err = tpl.Execute(file, tplVars)
 	if err != nil {
 		log.Fatalln(err)
 	}
-}
 
-func getFilledValidationStructure(fields []validationStructFields, params methodCodegenParams) string {
-	structName := params.ValidationStruct
-	structFields := ""
+	for name, actions := range structs {
+		out := ""
 
-	for _, field := range fields {
-		structFields += fmt.Sprintf(`%s: "%s",`, field.Name, "1")
+		for _, action := range actions {
+			out += fmt.Sprintf("func (s *%s) handler%s(w http.ResponseWriter, r *http.Request) {\n", name, action.MethodName)
+
+			out += fmt.Sprintf(`
+				err := r.ParseForm()
+				if err != nil {
+					log.Fatalln("Error parse query: ", err)
+				}
+			`)
+
+			out += fmt.Sprintf(`params := %s{}`, action.ValidationStruct)
+
+			for _, field := range validationStructures[action.ValidationStruct] {
+				param := strings.ToLower(field.Name)
+
+				out += fmt.Sprintf(`
+					%s := ""
+
+					if len(r.Form["%s"]) != 0 {
+						%s = r.Form["%s"][0]
+					}
+				`, param, param, param, param)
+
+				for rule, value := range field.Rules {
+					switch rule {
+					case RuleRequired:
+						out += fmt.Sprintf(`
+							if %s == "" {}
+						`)
+					case RuleMin:
+						out += fmt.Sprintf(`
+							if %s == "" {}
+						`)
+					}
+				}
+
+				/*switch field.Type {
+				case "string":
+					val := string(field.Type)
+				case "int":
+					val := string(field.Type)
+				}*/
+			}
+
+			out += fmt.Sprintf(`
+				_, err = s.%s(r.Context(), params)
+				if err != nil {
+					 w.WriteHeader(http.StatusInternalServerError)
+				}
+			`, action.MethodName)
+
+			out += "\n}\n"
+		}
+
+		fmt.Fprintln(file, out)
 	}
-
-	return fmt.Sprintf("%s{%s}", structName, structFields)
 }
 
 func getRules(rawRules []string) map[string]interface{} {

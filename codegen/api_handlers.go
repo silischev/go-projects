@@ -2,6 +2,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -50,6 +52,7 @@ func (s *MyApi) handlerProfile(w http.ResponseWriter, r *http.Request) {
 	login := rawVal
 
 	if rawVal == "" {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 	params.Login = login
 
@@ -58,6 +61,13 @@ func (s *MyApi) handlerProfile(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
+	resp, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(`{"error": "", "response": %s}`, resp)))
 }
 func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
@@ -75,10 +85,12 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	login := rawVal
 
-	if rawVal == "" {
+	if utf8.RuneCountInString(login) < 10 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	if utf8.RuneCountInString(login) < 10 {
+	if rawVal == "" {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 	params.Login = login
 
@@ -108,13 +120,15 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	age, err := strconv.Atoi(rawVal)
 	if err != nil {
-
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	if age < 0 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
 	if age > 128 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 	params.Age = age
 
@@ -123,6 +137,13 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
+	resp, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(`{"error": "", "response": %s}`, resp)))
 }
 
 func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
@@ -141,10 +162,12 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	username := rawVal
 
-	if utf8.RuneCountInString(username) < 3 {
+	if rawVal == "" {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	if rawVal == "" {
+	if utf8.RuneCountInString(username) < 3 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 	params.Username = username
 
@@ -174,13 +197,15 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	level, err := strconv.Atoi(rawVal)
 	if err != nil {
-
-	}
-
-	if level < 1 {
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 
 	if level > 50 {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	if level < 1 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 	params.Level = level
 
@@ -189,4 +214,11 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
+	resp, err := json.Marshal(res)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(`{"error": "", "response": %s}`, resp)))
 }

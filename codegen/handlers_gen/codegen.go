@@ -64,6 +64,8 @@ func main() {
 			"net/http"
 			"unicode/utf8"
 			"strconv"
+			"encoding/json"
+			"fmt"
 		)
 		
 		{{range $name, $actions := .Structs}}
@@ -195,7 +197,7 @@ func main() {
 					out += fmt.Sprintf(`
 						%s, err := strconv.Atoi(rawVal)
 						if err != nil {
-						
+							w.WriteHeader(http.StatusInternalServerError)
 						}
 					`, param)
 				}
@@ -204,26 +206,36 @@ func main() {
 					switch rule {
 					case RuleRequired:
 						out += fmt.Sprintf(`
-							if rawVal == "" {}
+							if rawVal == "" {
+								w.WriteHeader(http.StatusBadRequest)
+							}
 						`)
 					case RuleMin:
 						if field.Type == "string" {
 							out += fmt.Sprintf(`
-								if utf8.RuneCountInString(%s) < %s {}
+								if utf8.RuneCountInString(%s) < %s {
+									w.WriteHeader(http.StatusBadRequest)
+								}
 							`, param, val)
 						} else {
 							out += fmt.Sprintf(`
-								if %s < %s {}
+								if %s < %s {
+									w.WriteHeader(http.StatusBadRequest)
+								}
 							`, param, val)
 						}
 					case RuleMax:
 						if field.Type == "string" {
 							out += fmt.Sprintf(`
-								if utf8.RuneCountInString(%s) > %s {}
+								if utf8.RuneCountInString(%s) > %s {
+									w.WriteHeader(http.StatusBadRequest)
+								}
 							`, param, val)
 						} else {
 							out += fmt.Sprintf(`
-								if %s > %s {}
+								if %s > %s {
+									w.WriteHeader(http.StatusBadRequest)
+								}
 							`, param, val)
 						}
 					}
@@ -237,7 +249,16 @@ func main() {
 				if err != nil {
 					 w.WriteHeader(http.StatusInternalServerError)
 				}
+
+				resp, err := json.Marshal(res)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			
+				w.WriteHeader(http.StatusOK)
 			`, action.MethodName)
+
+			out += "w.Write([]byte(fmt.Sprintf(`{\"error\": \"\", \"response\": %s}`, resp)))"
 
 			out += "\n}\n"
 		}

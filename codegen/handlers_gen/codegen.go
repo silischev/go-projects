@@ -62,6 +62,8 @@ func main() {
 		import (
 			"log"
 			"net/http"
+			"unicode/utf8"
+			"strconv"
 		)
 		
 		{{range $name, $actions := .Structs}}
@@ -150,7 +152,6 @@ func main() {
 
 	tplVars["Package"] = node.Name.Name
 	tplVars["Structs"] = structs
-	//tplVars["ValidationStructs"] = validationStructures
 
 	tpl := template.Must(template.New("").Parse(commonPart))
 	err = tpl.Execute(file, tplVars)
@@ -171,42 +172,68 @@ func main() {
 				}
 			`)
 
-			out += fmt.Sprintf(`params := %s{}`, action.ValidationStruct)
+			out += fmt.Sprintf("params := %s{} \n", action.ValidationStruct)
+			out += "var rawVal string"
 
 			for _, field := range validationStructures[action.ValidationStruct] {
 				param := strings.ToLower(field.Name)
 
 				out += fmt.Sprintf(`
-					%s := ""
+					rawVal = ""
 
 					if len(r.Form["%s"]) != 0 {
-						%s = r.Form["%s"][0]
+						rawVal = r.Form["%s"][0]
 					}
-				`, param, param, param, param)
+				`, param, param)
 
-				for rule, value := range field.Rules {
+				switch field.Type {
+				case "string":
+					out += fmt.Sprintf(`
+						%s := rawVal
+					`, param)
+				case "int":
+					out += fmt.Sprintf(`
+						%s, err := strconv.Atoi(rawVal)
+						if err != nil {
+						
+						}
+					`, param)
+				}
+
+				for rule, val := range field.Rules {
 					switch rule {
 					case RuleRequired:
 						out += fmt.Sprintf(`
-							if %s == "" {}
+							if rawVal == "" {}
 						`)
 					case RuleMin:
-						out += fmt.Sprintf(`
-							if %s == "" {}
-						`)
+						if field.Type == "string" {
+							out += fmt.Sprintf(`
+								if utf8.RuneCountInString(%s) < %s {}
+							`, param, val)
+						} else {
+							out += fmt.Sprintf(`
+								if %s < %s {}
+							`, param, val)
+						}
+					case RuleMax:
+						if field.Type == "string" {
+							out += fmt.Sprintf(`
+								if utf8.RuneCountInString(%s) > %s {}
+							`, param, val)
+						} else {
+							out += fmt.Sprintf(`
+								if %s > %s {}
+							`, param, val)
+						}
 					}
 				}
 
-				/*switch field.Type {
-				case "string":
-					val := string(field.Type)
-				case "int":
-					val := string(field.Type)
-				}*/
+				out += fmt.Sprintf("params.%s = %s \n", field.Name, param)
 			}
 
 			out += fmt.Sprintf(`
-				_, err = s.%s(r.Context(), params)
+				res, err := s.%s(r.Context(), params)
 				if err != nil {
 					 w.WriteHeader(http.StatusInternalServerError)
 				}

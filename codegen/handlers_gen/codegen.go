@@ -76,7 +76,7 @@ func main() {
 							h.handler{{$action.MethodName}}(w, r)
 					{{end}}
 				default:
-					w.WriteHeader(http.StatusNotFound)
+					http.Error(w, "{\"error\": \"unknown method\"}", http.StatusNotFound)
 				}
 			}
 		{{end}}
@@ -190,9 +190,7 @@ func main() {
 
 				switch field.Type {
 				case "string":
-					out += fmt.Sprintf(`
-						%s := rawVal
-					`, param)
+					out += fmt.Sprintf(`%s := rawVal`, param) + "\n"
 				case "int":
 					out += fmt.Sprintf(`
 						%s, err := strconv.Atoi(rawVal)
@@ -207,20 +205,26 @@ func main() {
 					case RuleRequired:
 						out += fmt.Sprintf(`
 							if rawVal == "" {
-								w.WriteHeader(http.StatusBadRequest)
+								http.Error(w, "{\"error\": \"%s must me not empty\"}", http.StatusBadRequest)
+								
+								return
 							}
-						`)
+						`, param)
 					case RuleMin:
 						if field.Type == "string" {
 							out += fmt.Sprintf(`
 								if utf8.RuneCountInString(%s) < %s {
 									w.WriteHeader(http.StatusBadRequest)
+
+									return
 								}
 							`, param, val)
 						} else {
 							out += fmt.Sprintf(`
 								if %s < %s {
 									w.WriteHeader(http.StatusBadRequest)
+
+									return
 								}
 							`, param, val)
 						}
@@ -229,16 +233,24 @@ func main() {
 							out += fmt.Sprintf(`
 								if utf8.RuneCountInString(%s) > %s {
 									w.WriteHeader(http.StatusBadRequest)
+
+									return
 								}
 							`, param, val)
 						} else {
 							out += fmt.Sprintf(`
 								if %s > %s {
 									w.WriteHeader(http.StatusBadRequest)
+
+									return
 								}
 							`, param, val)
 						}
 					}
+				}
+
+				if rule, ok := field.Rules[RuleParamName]; ok {
+					out += fmt.Sprintf(`%s = r.Form["%s"][0]`, param, rule) + "\n"
 				}
 
 				out += fmt.Sprintf("params.%s = %s \n", field.Name, param)
@@ -247,12 +259,24 @@ func main() {
 			out += fmt.Sprintf(`
 				res, err := s.%s(r.Context(), params)
 				if err != nil {
-					 w.WriteHeader(http.StatusInternalServerError)
+					switch err.(type) {
+						case ApiError:
+							apiErr := err.(ApiError)
+							http.Error(w, fmt.Sprintf("{\"error\": \"%%s\"}", apiErr.Error()), apiErr.HTTPStatus)
+				
+							return
+						default:
+							http.Error(w, fmt.Sprintf("{\"error\": \"%%s\"}", err), http.StatusInternalServerError)
+				
+							return
+						}
 				}
 
 				resp, err := json.Marshal(res)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
+					
+					return
 				}
 			
 				w.WriteHeader(http.StatusOK)

@@ -14,9 +14,17 @@ func (h *MyApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 
 	case "/user/profile":
+
 		h.handlerProfile(w, r)
 
 	case "/user/create":
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
+
+			return
+		}
+
 		h.handlerCreate(w, r)
 
 	default:
@@ -28,6 +36,13 @@ func (h *OtherApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 
 	case "/user/create":
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
+
+			return
+		}
+
 		h.handlerCreate(w, r)
 
 	default:

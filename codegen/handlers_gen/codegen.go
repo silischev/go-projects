@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"log"
-	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -31,7 +30,7 @@ type methodCodegenParams struct {
 	ValidationStruct string
 	MethodName       string
 	Params           []queryParams
-	HTTPMethod       string
+	HTTPMethod       string `json:"method"`
 	Auth             bool
 }
 
@@ -73,6 +72,22 @@ func main() {
 				switch r.URL.Path {
 					{{range $action := $actions}}
 						case "{{$action.URL}}":
+							{{if eq .HTTPMethod "Get"}}
+								if r.Method != http.MethodGet {
+									http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
+					
+									return
+								}
+							{{end}}			
+				
+							{{if eq .HTTPMethod "POST"}}
+								if r.Method != http.MethodPost {
+									http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
+					
+									return
+								}
+							{{end}}
+
 							h.handler{{$action.MethodName}}(w, r)
 					{{end}}
 				default:
@@ -106,7 +121,6 @@ func main() {
 			params := comment.Text()[len(codegenPrefix):len(comment.Text())]
 			methodCodegenParams := &methodCodegenParams{
 				MethodName:       function.Name.Name,
-				HTTPMethod:       http.MethodGet,
 				ValidationStruct: fmt.Sprint(function.Type.Params.List[1].Type),
 			}
 			err := json.Unmarshal([]byte(params), methodCodegenParams)

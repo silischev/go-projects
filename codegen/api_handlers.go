@@ -19,6 +19,12 @@ func (h *MyApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case "/user/create":
 
+		if r.Header.Get("X-Auth") == "" {
+			http.Error(w, "{\"error\": \"unauthorized\"}", http.StatusForbidden)
+
+			return
+		}
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
 
@@ -36,6 +42,12 @@ func (h *OtherApi) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 
 	case "/user/create":
+
+		if r.Header.Get("X-Auth") == "" {
+			http.Error(w, "{\"error\": \"unauthorized\"}", http.StatusForbidden)
+
+			return
+		}
 
 		if r.Method != http.MethodPost {
 			http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
@@ -119,7 +131,7 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if utf8.RuneCountInString(login) < 10 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"login len must be >= 10\"}", http.StatusBadRequest)
 
 		return
 	}
@@ -140,6 +152,26 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 		rawVal = r.Form["status"][0]
 	}
 	status := rawVal
+
+	if rawVal == "" {
+		rawVal = "user"
+	}
+
+	if rawVal != "" {
+		inEnum := false
+		for _, val := range []string{"user", "moderator", "admin"} {
+			if val == rawVal {
+				inEnum = true
+				break
+			}
+		}
+
+		if !inEnum {
+			http.Error(w, "{\"error\": \"status must be one of [user, moderator, admin]\"}", http.StatusBadRequest)
+
+			return
+		}
+	}
 	params.Status = status
 
 	rawVal = ""
@@ -150,17 +182,19 @@ func (s *MyApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	age, err := strconv.Atoi(rawVal)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "{\"error\": \"age must be int\"}", http.StatusBadRequest)
+
+		return
 	}
 
 	if age < 0 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"age must be >= 0\"}", http.StatusBadRequest)
 
 		return
 	}
 
 	if age > 128 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"age must be <= 128\"}", http.StatusBadRequest)
 
 		return
 	}
@@ -214,7 +248,7 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if utf8.RuneCountInString(username) < 3 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"username len must be >= 3\"}", http.StatusBadRequest)
 
 		return
 	}
@@ -235,6 +269,26 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 		rawVal = r.Form["class"][0]
 	}
 	class := rawVal
+
+	if rawVal == "" {
+		rawVal = "warrior"
+	}
+
+	if rawVal != "" {
+		inEnum := false
+		for _, val := range []string{"warrior", "sorcerer", "rouge"} {
+			if val == rawVal {
+				inEnum = true
+				break
+			}
+		}
+
+		if !inEnum {
+			http.Error(w, "{\"error\": \"class must be one of [warrior, sorcerer, rouge]\"}", http.StatusBadRequest)
+
+			return
+		}
+	}
 	params.Class = class
 
 	rawVal = ""
@@ -245,17 +299,19 @@ func (s *OtherApi) handlerCreate(w http.ResponseWriter, r *http.Request) {
 
 	level, err := strconv.Atoi(rawVal)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "{\"error\": \"level must be int\"}", http.StatusBadRequest)
+
+		return
 	}
 
 	if level < 1 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"level must be >= 1\"}", http.StatusBadRequest)
 
 		return
 	}
 
 	if level > 50 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "{\"error\": \"level must be <= 50\"}", http.StatusBadRequest)
 
 		return
 	}

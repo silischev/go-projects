@@ -72,7 +72,15 @@ func main() {
 				switch r.URL.Path {
 					{{range $action := $actions}}
 						case "{{$action.URL}}":
-							{{if eq .HTTPMethod "Get"}}
+							{{if eq .Auth true}}
+								if r.Header.Get("X-Auth") == "" {
+									http.Error(w, "{\"error\": \"unauthorized\"}", http.StatusForbidden)
+						
+									return
+								}
+							{{end}}
+
+							{{if eq .HTTPMethod "GET"}}
 								if r.Method != http.MethodGet {
 									http.Error(w, "{\"error\": \"bad method\"}", http.StatusNotAcceptable)
 					
@@ -209,9 +217,23 @@ func main() {
 					out += fmt.Sprintf(`
 						%s, err := strconv.Atoi(rawVal)
 						if err != nil {
-							w.WriteHeader(http.StatusInternalServerError)
+							http.Error(w, "{\"error\": \"%s must be int\"}", http.StatusBadRequest)
+								
+							return
 						}
-					`, param)
+					`, param, param)
+				}
+
+				if rule, ok := field.Rules[RuleParamName]; ok {
+					out += fmt.Sprintf(`%s = r.Form["%s"][0]`, param, rule) + "\n"
+				}
+
+				if rule, ok := field.Rules[RuleDefault]; ok {
+					out += fmt.Sprintf(`
+						if rawVal == "" {
+							rawVal = "%s"
+						}					
+					`, rule) + "\n"
 				}
 
 				for rule, val := range field.Rules {
@@ -228,43 +250,57 @@ func main() {
 						if field.Type == "string" {
 							out += fmt.Sprintf(`
 								if utf8.RuneCountInString(%s) < %s {
-									w.WriteHeader(http.StatusBadRequest)
+									http.Error(w, "{\"error\": \"%s len must be >= %v\"}", http.StatusBadRequest)
 
 									return
 								}
-							`, param, val)
+							`, param, val, param, val)
 						} else {
 							out += fmt.Sprintf(`
 								if %s < %s {
-									w.WriteHeader(http.StatusBadRequest)
+									http.Error(w, "{\"error\": \"%s must be >= %v\"}", http.StatusBadRequest)
 
 									return
 								}
-							`, param, val)
+							`, param, val, param, val)
 						}
 					case RuleMax:
 						if field.Type == "string" {
 							out += fmt.Sprintf(`
 								if utf8.RuneCountInString(%s) > %s {
-									w.WriteHeader(http.StatusBadRequest)
+									http.Error(w, "{\"error\": \"%s len must be <= %v\"}", http.StatusBadRequest)
 
 									return
 								}
-							`, param, val)
+							`, param, val, param, val)
 						} else {
 							out += fmt.Sprintf(`
 								if %s > %s {
-									w.WriteHeader(http.StatusBadRequest)
+									http.Error(w, "{\"error\": \"%s must be <= %v\"}", http.StatusBadRequest)
 
 									return
 								}
-							`, param, val)
+							`, param, val, param, val)
 						}
+					case RuleEnum:
+						out += fmt.Sprintf(`
+							if rawVal != "" {
+								inEnum := false
+								for _, val := range %#v {
+									if val == rawVal {
+										inEnum = true
+										break
+									}
+								}
+							
+								if !inEnum {
+									http.Error(w, "{\"error\": \"%s must be one of [%s]\"}", http.StatusBadRequest)
+							
+									return
+								}
+							}
+						`, val, param, strings.Join(val.([]string), ", "))
 					}
-				}
-
-				if rule, ok := field.Rules[RuleParamName]; ok {
-					out += fmt.Sprintf(`%s = r.Form["%s"][0]`, param, rule) + "\n"
 				}
 
 				out += fmt.Sprintf("params.%s = %s \n", field.Name, param)
